@@ -233,6 +233,20 @@
   .draghint { font-size: 12px; color: #4a3bc4; background: var(--brand-soft); border-radius: 7px;
               padding: 7px 11px; margin: 8px 0 0; line-height: 1.5; }
   .chartbox.dragmode { cursor: ns-resize; }
+
+  /* 막대마다 달리는 아래 날짜 */
+  .xaxis { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; }
+  .xaxis span { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 10.5px; color: #55555f;
+                white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .xaxis span.first { font-weight: 700; color: var(--text); }
+
+  /* 마우스를 올리면 뜨는 말풍선 */
+  .tip { position: absolute; z-index: 5; pointer-events: none; background: #fff; border: 1px solid var(--line);
+         border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 8px 12px; font-size: 12px;
+         white-space: nowrap; line-height: 1.7; color: #4a4a57; }
+  .tip .tt { font-weight: 700; color: var(--text); font-size: 13px; text-align: center; }
+  .tip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+  .tip b { color: var(--text); margin-left: 4px; font-variant-numeric: tabular-nums; }
   .ctl input.ymax { border: 0; background: transparent; padding: 2px 0; width: 104px; font-weight: 600; font-size: 13px; }
   .chartbox.dragmode #chart { touch-action: none; }
 
@@ -1038,7 +1052,11 @@ function drawMetric(c, def) {
         </div>
         <div class="draghint" id="dragHint" hidden></div>
         <div class="legend" id="legend"></div>
-        <div class="chartbox" id="chartbox"><div id="chart"></div><div id="chartMsg"></div></div>
+        <div class="chartbox" id="chartbox">
+          <div id="chart"></div><div id="chartMsg"></div>
+          <div class="xaxis" id="xaxis"></div>
+          <div class="tip" id="tip" hidden></div>
+        </div>
         <div class="navi" id="navi">
           <svg id="naviSvg"></svg>
           <div class="navwin" id="navWin"><span class="h" data-h="l"></span><span class="h" data-h="r"></span></div>
@@ -1073,7 +1091,7 @@ function drawMetric(c, def) {
 }
 
 /* ----- 차트 그리기 ----- */
-let chartData = [], mainSeries = null, navSync = null, navObserver = null;
+let chartData = [], mainSeries = null, navSync = null, navObserver = null, dateObserver = null;
 
 function drawChart(c, def, daily, S) {
   const candle = S.chartStyle === 'candle';
@@ -1100,7 +1118,7 @@ function drawChart(c, def, daily, S) {
       borderColor: cssVar('--line'), rightOffset: 1, barSpacing: 14, minBarSpacing: 0.3,
       tickMarkFormatter: (t, type) => {
         const [, m, d] = dayOf(t).split('-');
-        return `${m} ${d}`;   // 항상 '월 일'만 (예: 10 01)
+        return ' ';   // 아래 날짜는 직접 그려요 (8번: 막대마다 하나씩)
       },
     },
     localization: { timeFormatter: t => dayOf(t) },
@@ -1192,11 +1210,13 @@ function drawChart(c, def, daily, S) {
 
   // 4) 가격 (오른쪽 눈금, 검정 선) — '봉' 스타일에서는 숨겨요
   const withPrice = !candle && def.key !== 'PriceUSD';
+  let priceSeries = null;
   if (withPrice) {
     const first = full.length ? full[0].time : '';
     const price = aggregate(toArr(baseMap(c.id, 'PriceUSD')), S.window).filter(p => !first || p.time >= first);
-    chart.addLineSeries({ priceScaleId: 'right', color: cssVar('--priceline'), lineWidth: 1.2,
-                          priceFormat: pf(v => fmt(v, { fmt: 'usd' }, c)) }).setData(price);
+    priceSeries = chart.addLineSeries({ priceScaleId: 'right', color: cssVar('--priceline'), lineWidth: 1.2,
+                                        priceFormat: pf(v => fmt(v, { fmt: 'usd' }, c)) });
+    priceSeries.setData(price);
   }
   const mode = S.scale === 'log' ? 1 : 0;
   chart.applyOptions({ leftPriceScale: { mode }, rightPriceScale: { visible: withPrice, mode } });
@@ -1281,6 +1301,61 @@ function drawChart(c, def, daily, S) {
     box.addEventListener('pointerup', end, true);
     box.addEventListener('pointercancel', end, true);
   }
+
+  // 8) 아래 날짜: 막대마다 '월 일'을 하나씩 (너무 촘촘해서 겹치면 건너뛰며)
+  const xaxis = $('xaxis');
+  const paneLeftOf = () => $('chart').clientWidth - chart.priceScale('right').width() - chart.timeScale().width();
+  const drawDates = () => {
+    const r = chart.timeScale().getVisibleLogicalRange();
+    if (!r || !chartData.length) { xaxis.innerHTML = ''; return; }
+    const from = Math.max(0, Math.ceil(r.from)), to = Math.min(chartData.length - 1, Math.floor(r.to));
+    const spacing = chart.timeScale().options().barSpacing;
+    const step = Math.max(1, Math.ceil(30 / spacing));   // 날짜 글자 하나에 약 30px 필요 (그보다 좁으면 건너뛰기)
+    const left = paneLeftOf(), w = chart.timeScale().width();
+    let html = '';
+    for (let i = from; i <= to; i++) {
+      if (i % step) continue;
+      const x = chart.timeScale().logicalToCoordinate(i);
+      if (x == null || x < 0 || x > w) continue;
+      const [, m, d] = chartData[i].time.split('-');
+      html += `<span style="left:${(left + x).toFixed(1)}px" class="${d === '01' ? 'first' : ''}">${m} ${d}</span>`;
+    }
+    xaxis.style.height = chart.timeScale().height() + 'px';
+    xaxis.innerHTML = html;
+  };
+  chart.timeScale().subscribeVisibleLogicalRangeChange(() => setTimeout(drawDates, 0));
+  setTimeout(drawDates, 0);
+  if (dateObserver) dateObserver.disconnect();
+  dateObserver = new ResizeObserver(() => setTimeout(drawDates, 0));
+  dateObserver.observe($('chart'));
+
+  // 9) 막대에 마우스를 올리면 날짜와 값 보여주기
+  const tip = $('tip');
+  const full2 = v => Math.abs(v) >= 1e15 || Math.abs(v) < 1e-4 && v !== 0
+    ? Number(v.toPrecision(6)).toLocaleString('en-US') : v.toLocaleString('en-US', { maximumFractionDigits: Math.abs(v) < 1 ? 8 : 2 });
+  chart.subscribeCrosshairMove(param => {
+    if (!param.point || param.time == null || param.logical == null) { tip.hidden = true; return; }
+    const p = chartData[Math.round(param.logical)];
+    if (!p) { tip.hidden = true; return; }
+    const [y, m, d] = p.time.split('-');
+    let rows = `<div class="tt">${y} ${m} ${d}, UTC</div>`;
+    const unit = def.fmt === 'coin' ? '' : def.fmt === 'usd' ? '$' : '';
+    rows += `<div><i style="background:var(--bar)"></i>${def.name} <b>${p.value == null || p.ph ? '값 없음' : unit + full2(p.value)}</b></div>`;
+    if (priceSeries) {
+      const pd = param.seriesData.get(priceSeries);
+      if (pd && pd.value != null) rows += `<div><i style="background:var(--priceline)"></i>가격(USD) <b>$${full2(pd.value)}</b></div>`;
+    }
+    tip.innerHTML = rows;
+    tip.hidden = false;
+    // 마우스 근처(막대 위쪽)에 띄우고, 화면 밖으로 나가지 않게
+    const boxW = $('chart').clientWidth, tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = paneLeftOf() + param.point.x - tw / 2;
+    x = Math.max(4, Math.min(x, boxW - tw - 4));
+    let top = param.point.y - th - 14;
+    if (top < 4) top = param.point.y + 18;
+    tip.style.left = x + 'px';
+    tip.style.top = top + 'px';
+  });
 
   drawNavigator();
 }
