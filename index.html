@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>체인렌즈 · 코인별 온체인 요약</title>
+<title>ChainLens · 코인별 온체인 데이터</title>
 
 <!-- 차트 그리는 도구 (TradingView에서 무료로 공개한 라이브러리) -->
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
@@ -17,10 +17,11 @@
     --text: #17171c;     /* 글자 */
     --muted: #7a7a86;    /* 흐린 글자 */
     --brand: #5a48e0;    /* 강조색 (보라) */
+    --brand-soft: #f1effd;
     --up: #0fa86b;       /* 상승 (초록) */
     --down: #e5484d;     /* 하락 (빨강) */
-    --warn: #e08a00;     /* 주의 (주황) */
     --price: #f2a93b;    /* 차트 가격선 */
+    --star: #f5b400;     /* 즐겨찾기 별 */
   }
   * { box-sizing: border-box; }
   body {
@@ -29,15 +30,16 @@
     -webkit-font-smoothing: antialiased;
   }
   button { font: inherit; }
+  a { color: inherit; }
   .num { font-variant-numeric: tabular-nums; }
 
   /* ===== 맨 위 막대 ===== */
   header {
     display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 24px;
     border-bottom: 1px solid var(--line); background: var(--bg);
-    position: sticky; top: 0; z-index: 10;
+    position: sticky; top: 0; z-index: 20;
   }
-  .brand { font-weight: 800; font-size: 18px; letter-spacing: -.02em; }
+  .brand { font-weight: 800; font-size: 18px; letter-spacing: -.02em; text-decoration: none; }
   .brand span { color: var(--brand); }
   header .spacer { flex: 1; }
   #editToggle {
@@ -55,14 +57,51 @@
     border-bottom: 2px solid transparent;
   }
   .coins a.on { color: var(--text); border-bottom-color: var(--text); }
-  .coins img, .coin-dot { width: 18px; height: 18px; border-radius: 50%; }
+  .coins img, .coin-dot { width: 18px; height: 18px; border-radius: 50%; display: inline-block; background: var(--soft); }
 
-  main { max-width: 1240px; margin: 0 auto; padding: 28px 24px 40px; }
+  /* ===== 전체 배치: 왼쪽 메뉴 + 본문 ===== */
+  .shell { display: grid; grid-template-columns: 270px minmax(0, 1fr); }
+  body.side-closed .shell { grid-template-columns: minmax(0, 1fr); }
+  body.side-closed aside { display: none; }
+
+  aside {
+    border-right: 1px solid var(--line); padding: 16px 12px;
+    position: sticky; top: 52px; height: calc(100vh - 52px); overflow-y: auto; background: var(--bg);
+  }
+  .side-top { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 10px; }
+  .side-top b { font-size: 15px; }
+  .iconbtn { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; }
+  .iconbtn:hover { background: var(--soft); color: var(--text); }
+  #search { width: 100%; margin-bottom: 10px; }
+
+  .cat-h {
+    display: flex; align-items: center; gap: 6px; padding: 9px 8px; border-radius: 7px;
+    font-size: 14px; cursor: pointer; user-select: none;
+  }
+  .cat-h:hover { background: var(--soft); }
+  .cat-h .arr { width: 14px; color: var(--muted); font-size: 10px; transition: transform .15s; }
+  .cat.open .arr { transform: rotate(90deg); }
+  .cat-h a { flex: 1; text-decoration: none; }
+  .cat-h.on a { color: var(--brand); font-weight: 700; }
+  .cat-items { display: none; padding: 2px 0 6px 22px; }
+  .cat.open .cat-items { display: block; }
+  .cat-items a {
+    display: block; padding: 6px 8px; font-size: 13px; color: var(--muted);
+    text-decoration: none; border-radius: 6px;
+  }
+  .cat-items a:hover { color: var(--text); background: var(--soft); }
+  .cat-items a.on { color: var(--brand); background: var(--brand-soft); font-weight: 600; }
+  .cat-items .none { font-size: 12px; color: var(--muted); padding: 6px 8px; }
+  .newtag { font-size: 10px; color: #fff; background: var(--brand); border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: 1px; }
+
+  main { padding: 26px 36px 40px; min-width: 0; }
+  #sideOpen { display: none; margin-bottom: 14px; }
+  body.side-closed #sideOpen { display: inline-block; }
 
   /* ===== 편집 모드 안내 ===== */
   .editbar {
     display: none; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; line-height: 1.6;
-    background: #f1effd; border: 1px solid #d9d3fb; border-radius: 10px; padding: 10px 14px; margin-bottom: 24px;
+    background: var(--brand-soft); border: 1px solid #d9d3fb; border-radius: 10px; padding: 10px 14px; margin-bottom: 24px;
   }
   body.editing .editbar { display: flex; }
   .editbar p { margin: 0; flex: 1 1 320px; color: #4a4a57; }
@@ -71,7 +110,7 @@
   .btn:hover { background: var(--soft); }
   .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
 
-  /* ===== 코인 요약 (가격 + 통계) ===== */
+  /* ===== 개요: 코인 요약 ===== */
   .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 20px 0; margin-bottom: 44px; }
   .hero .id { display: flex; align-items: center; gap: 14px; padding-right: 28px; }
   .hero .id img, .hero .id .coin-dot { width: 52px; height: 52px; }
@@ -83,18 +122,18 @@
   .hero .stat b { font-size: 14px; font-weight: 600; }
   .up { color: var(--up) !important; } .dn { color: var(--down) !important; }
 
-  h2.title { font-size: 22px; margin: 0 0 18px; letter-spacing: -.02em; }
+  h2.title { font-size: 24px; margin: 0 0 8px; letter-spacing: -.02em; }
+  .lead { color: var(--muted); font-size: 14px; margin: 0 0 22px; line-height: 1.6; }
+  .notice { background: var(--soft); border: 1px solid var(--line); border-radius: 10px;
+            padding: 12px 14px; font-size: 13px; color: #4a4a57; margin-bottom: 22px; line-height: 1.6; }
 
-  /* ===== 주요 지표: 2열 표 ===== */
-  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 36px 40px; margin-bottom: 56px; }
-  .panel h3 { font-size: 16px; margin: 0 0 12px; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 36px 40px; margin-bottom: 30px; }
+  .panel h3 { font-size: 16px; margin: 0 0 12px; display: flex; justify-content: space-between; }
+  .panel h3 a { font-size: 12px; color: var(--brand); font-weight: 600; text-decoration: none; }
   .phead { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted);
            padding: 8px 0; border-bottom: 1px solid var(--line); }
-  .prow {
-    display: flex; align-items: center; justify-content: space-between; gap: 14px;
-    padding: 14px 0; border-bottom: 1px solid var(--line); cursor: pointer; width: 100%;
-    background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left; color: inherit;
-  }
+  .prow { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+          padding: 14px 0; border-bottom: 1px solid var(--line); text-decoration: none; }
   .prow:hover .pname { color: var(--brand); }
   .prow .txt { min-width: 0; }
   .pname { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
@@ -106,227 +145,254 @@
   .s-mid  { color: #55555f; background: #eeeef2; }
   .edited { font-size: 11px; color: var(--brand); font-weight: 600; margin-left: 6px; }
 
-  /* ===== 전체 지표 표 ===== */
-  .sub { color: var(--muted); font-size: 13px; margin: -10px 0 16px; }
+  /* ===== 카테고리 표 ===== */
   .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
   .tbl th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px;
-            padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--soft); }
-  .tbl td { padding: 14px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+            padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .tbl td { padding: 16px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   .tbl tr.click { cursor: pointer; }
   .tbl tr.click:hover td { background: var(--soft); }
-  .tbl .rank { color: var(--muted); width: 36px; }
+  .tbl .star { width: 36px; }
+  .starbtn { background: none; border: 0; cursor: pointer; font-size: 17px; color: #c9c9d1; padding: 0; }
+  .starbtn.on { color: var(--star); }
   .tbl .mname { font-weight: 600; white-space: nowrap; }
-  .tbl .mdesc { color: var(--muted); max-width: 440px; line-height: 1.5; }
+  .tbl .mdesc { color: #55555f; max-width: 520px; line-height: 1.55; }
   .tbl .r { text-align: right; white-space: nowrap; }
-  .tbl svg { width: 120px; height: 34px; display: block; margin-left: auto; }
+  .tbl svg { width: 130px; height: 36px; display: block; margin-left: auto; }
+  .nodata { color: var(--muted); font-size: 12px; }
   .memo { display: block; color: var(--brand); font-size: 12px; font-weight: 500; margin-top: 3px; white-space: pre-wrap; }
 
-  .loading { color: var(--muted); padding: 80px 0; text-align: center; }
-
-  /* ===== 상세 차트 창 ===== */
-  dialog {
-    width: min(1000px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
-    background: var(--bg); color: var(--text); border: 0; border-radius: 14px; padding: 20px 22px;
-    box-shadow: 0 20px 60px rgba(0,0,0,.18);
-  }
-  dialog::backdrop { background: rgba(20,20,30,.45); }
-  .dhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-  .dhead small { color: var(--muted); }
-  .dhead h3 { margin: 2px 0 0; font-size: 20px; }
-  #dClose { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; }
-  .desc { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 8px 0 14px; }
+  /* ===== 지표 차트 페이지 ===== */
+  .crumb { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .crumb a { color: var(--muted); text-decoration: none; }
+  .crumb a:hover { color: var(--brand); }
+  .mhead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 8px; }
+  .mhead h2 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
+  .mstats { display: flex; flex-wrap: wrap; gap: 0; margin: 18px 0 20px; }
+  .mstats div { border-left: 1px solid var(--line); padding: 2px 18px; }
+  .mstats div:first-child { border-left: 0; padding-left: 0; }
+  .mstats small { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .mstats b { font-size: 18px; }
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
   .seg { display: flex; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
-  .seg button { border: 0; background: none; color: var(--muted); padding: 5px 11px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .seg button { border: 0; background: none; color: var(--muted); padding: 5px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
   .seg button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
   label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 5px; align-items: center; cursor: pointer; }
-  .chartbox { position: relative; height: 380px; border: 1px solid var(--line); border-radius: 10px; }
+  .chartbox { position: relative; height: min(560px, 62vh); border: 1px solid var(--line); border-radius: 12px; }
   #chart { position: absolute; inset: 0; }
+  #chartMsg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+              color: var(--muted); font-size: 14px; padding: 20px; pointer-events: none; line-height: 1.7; }
   .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px; }
   .legend i { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 5px; }
 
-  /* ===== 상세 창 안의 편집 영역 ===== */
-  #editArea { display: none; margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+  /* ===== 편집 영역 (편집 모드일 때만) ===== */
+  #editArea { display: none; margin-top: 26px; border: 1px solid #d9d3fb; border-radius: 12px; padding: 16px 18px; }
   body.editing #editArea { display: block; }
-  #editArea h4 { margin: 0 0 8px; font-size: 14px; color: var(--brand); }
-  #editArea .hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+  #editArea h4 { margin: 0 0 8px; font-size: 15px; color: var(--brand); }
+  #editArea .hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; line-height: 1.6; }
   .addrow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
   input, textarea { background: var(--bg); color: var(--text); border: 1px solid #d8d8e0;
                     border-radius: 7px; padding: 6px 9px; font: inherit; font-size: 13px; }
   input:focus, textarea:focus { outline: none; border-color: var(--brand); }
-  .tablewrap { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .tablewrap { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
   .etbl { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
   .etbl th, .etbl td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
   .etbl th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--soft); }
   .etbl td input { width: 100%; min-width: 110px; }
-  .etbl tr.changed td { background: #f1effd; }
+  .etbl tr.changed td { background: var(--brand-soft); }
   textarea { width: 100%; min-height: 60px; resize: vertical; }
 
+  .loading { color: var(--muted); padding: 80px 0; text-align: center; }
   footer { color: var(--muted); font-size: 12px; line-height: 1.7; border-top: 1px solid var(--line);
-           padding: 18px 24px 30px; max-width: 1240px; margin: 0 auto; }
+           padding-top: 18px; margin-top: 48px; }
   footer a { color: var(--muted); }
+  #sideShade { display: none; }
 
-  /* ===== 휴대폰 화면 ===== */
-  @media (max-width: 860px) {
+  /* ===== 태블릿·휴대폰 ===== */
+  @media (max-width: 960px) {
+    .shell, body.side-closed .shell { grid-template-columns: minmax(0, 1fr); }
+    aside, body.side-closed aside {
+      display: block; position: fixed; top: 0; left: 0; bottom: 0; height: 100vh; width: 290px;
+      z-index: 40; transform: translateX(-100%); transition: transform .2s; box-shadow: 0 0 40px rgba(0,0,0,.15);
+    }
+    body.side-open aside { transform: none; }
+    body.side-open #sideShade { display: block; position: fixed; inset: 0; background: rgba(20,20,30,.35); z-index: 35; }
+    #sideOpen, body.side-closed #sideOpen { display: inline-block; }
     .panels { grid-template-columns: 1fr; }
     .tbl .mdesc, .tbl .col-desc { display: none; }
+    main { padding: 20px 16px 32px; }
   }
   @media (max-width: 640px) {
     header, .coins { padding-left: 16px; padding-right: 16px; }
-    main { padding: 20px 16px 32px; }
     .hero { gap: 14px 0; }
     .hero .id { width: 100%; }
     .hero .stat { flex: 1 1 33%; padding: 2px 10px; }
     .hero .stat:nth-of-type(4) { border-left: 0; padding-left: 0; }
-    .tbl svg { width: 70px; }
     .tbl .col-spark, .tbl td.spark { display: none; }
-    dialog { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; padding: 14px 16px; }
-    .chartbox { height: 300px; }
-    footer { padding: 18px 16px 30px; }
+    .tbl td { padding: 14px 8px; }
+    .chartbox { height: 340px; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">Chain<span>Lens</span></div>
+  <a class="brand" href="#">Chain<span>Lens</span></a>
   <span class="spacer"></span>
   <button id="editToggle">✎ 데이터 편집</button>
 </header>
 
 <nav class="coins" id="coins"></nav>
 
-<main>
-  <div class="editbar">
-    <p>
-      <b>편집 모드</b> · 지표를 눌러 값을 고치거나 메모를 남겨 보세요. 고친 내용은 이 브라우저에 바로 저장돼요.
-      다른 기기에서도 보려면 <b>파일로 내보내기</b> → 받은 <b>overrides.json</b>을 GitHub 저장소에 올리세요.
-      <span id="editCount"></span>
-    </p>
-    <button class="btn primary" id="exportBtn">파일로 내보내기</button>
-    <button class="btn" id="importBtn">파일 불러오기</button>
-    <button class="btn" id="resetBtn">게시된 버전으로 되돌리기</button>
-    <input type="file" id="importFile" accept=".json,application/json" hidden>
-  </div>
-
-  <div id="page"><div class="loading">데이터 불러오는 중…</div></div>
-</main>
-
-<footer>
-  온체인 데이터: <a href="https://coinmetrics.io/community-network-data/" target="_blank" rel="noopener">Coin Metrics Community Data</a> (CC BY-NC 4.0) ·
-  시세: <a href="https://www.coingecko.com/" target="_blank" rel="noopener">CoinGecko</a> ·
-  상태 표시는 단순한 기준으로 자동 계산한 값이며 투자 조언이 아닙니다.
-</footer>
-
-<!-- 지표를 누르면 열리는 상세 창 -->
-<dialog id="dlg">
-  <div class="dhead">
-    <div><small id="dCoin"></small><h3 id="dTitle"></h3></div>
-    <button id="dClose" aria-label="닫기">✕</button>
-  </div>
-  <p class="desc" id="dDesc"></p>
-  <div class="toolbar">
-    <div class="seg" id="range">
-      <button data-days="90">3개월</button>
-      <button data-days="365" class="on">1년</button>
-      <button data-days="1095">3년</button>
-      <button data-days="0">전체</button>
+<div class="shell">
+  <!-- 왼쪽 지표 메뉴 -->
+  <aside id="side">
+    <div class="side-top">
+      <b>지표</b>
+      <button class="iconbtn" id="sideClose" title="메뉴 접기">⇤</button>
     </div>
-    <label class="chk"><input type="checkbox" id="showPrice" checked> 가격 겹쳐 보기</label>
-    <label class="chk"><input type="checkbox" id="logScale"> 로그 스케일</label>
-  </div>
-  <div class="chartbox"><div id="chart"></div></div>
-  <div class="legend">
-    <span><i style="background:var(--brand)"></i><span id="lgName"></span></span>
-    <span id="lgPrice"><i style="background:var(--price)"></i>가격 (USD)</span>
-    <span id="lgEdit"><i style="background:var(--down);height:8px;width:8px;border-radius:50%"></i>직접 수정한 날짜</span>
-  </div>
-  <div id="editArea"></div>
-</dialog>
+    <input id="search" placeholder="지표 검색">
+    <div id="tree"></div>
+  </aside>
+  <div id="sideShade"></div>
+
+  <main>
+    <button class="btn" id="sideOpen">☰ 지표 목록</button>
+
+    <div class="editbar">
+      <p>
+        <b>편집 모드</b> · 지표를 눌러 값을 고치거나 직접 입력하고, 메모를 남겨 보세요. 고친 내용은 이 브라우저에 바로 저장돼요.
+        다른 기기에서도 보려면 <b>파일로 내보내기</b> → 받은 <b>overrides.json</b>을 GitHub 저장소에 올리세요.
+        <span id="editCount"></span>
+      </p>
+      <button class="btn primary" id="exportBtn">파일로 내보내기</button>
+      <button class="btn" id="importBtn">파일 불러오기</button>
+      <button class="btn" id="resetBtn">게시된 버전으로 되돌리기</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+
+    <div id="page"><div class="loading">데이터 불러오는 중…</div></div>
+
+    <footer>
+      온체인 데이터: <a href="https://coinmetrics.io/community-network-data/" target="_blank" rel="noopener">Coin Metrics Community Data</a> (CC BY-NC 4.0) ·
+      시세: <a href="https://www.coingecko.com/" target="_blank" rel="noopener">CoinGecko</a> ·
+      상태 표시는 단순한 기준으로 자동 계산한 값이며 투자 조언이 아닙니다.
+    </footer>
+  </main>
+</div>
 
 <script>
 /* =====================================================================
    1) 코인 목록
    - cg: CoinGecko 이름 (시세·아이콘용)
-   - extra: 그 코인에서만 받을 수 있는 추가 온체인 지표
+   - m: Coin Metrics에서 무료로 받을 수 있는 지표 목록
+   - 시바이누는 무료 온체인 데이터가 없어서 가격만 받고, 나머지는 직접 입력해요
    ===================================================================== */
+const COMMON = ['PriceUSD', 'CapMrktCurUSD', 'CapMVRVCur', 'AdrActCnt', 'TxCnt', 'TxTfrCnt', 'AdrBalCnt', 'SplyCur', 'ROI30d'];
+const FLOWS  = ['FlowInExNtv', 'FlowOutExNtv', 'FlowInExUSD', 'FlowOutExUSD', 'SplyExNtv'];
 const COINS = [
-  { id: 'btc',  cg: 'bitcoin',      name: '비트코인',     sym: 'BTC',  extra: ['FeeTotNtv', 'HashRate', 'IssTotUSD', 'FlowInExUSD', 'FlowOutExUSD', 'SplyExNtv'] },
-  { id: 'eth',  cg: 'ethereum',     name: '이더리움',     sym: 'ETH',  extra: ['FeeTotNtv', 'IssTotUSD', 'FlowInExUSD', 'FlowOutExUSD', 'SplyExNtv'] },
-  { id: 'xrp',  cg: 'ripple',       name: '리플',         sym: 'XRP',  extra: ['FeeTotNtv'] },
-  { id: 'usdt', cg: 'tether',       name: '테더',         sym: 'USDT', extra: [] },
-  { id: 'doge', cg: 'dogecoin',     name: '도지코인',     sym: 'DOGE', extra: ['FeeTotNtv', 'HashRate', 'IssTotUSD'] },
-  { id: 'ada',  cg: 'cardano',      name: '에이다',       sym: 'ADA',  extra: ['FeeTotNtv', 'IssTotUSD'] },
-  { id: 'link', cg: 'chainlink',    name: '체인링크',     sym: 'LINK', extra: ['IssTotUSD'] },
-  { id: 'ltc',  cg: 'litecoin',     name: '라이트코인',   sym: 'LTC',  extra: ['FeeTotNtv', 'HashRate', 'IssTotUSD'] },
-  { id: 'bch',  cg: 'bitcoin-cash', name: '비트코인캐시', sym: 'BCH',  extra: ['FeeTotNtv', 'HashRate', 'IssTotUSD'] },
+  { id: 'btc',  cg: 'bitcoin',      name: '비트코인',     sym: 'BTC',  m: [...COMMON, ...FLOWS, 'FeeTotNtv', 'HashRate', 'IssTotUSD'] },
+  { id: 'eth',  cg: 'ethereum',     name: '이더리움',     sym: 'ETH',  m: [...COMMON, ...FLOWS, 'FeeTotNtv', 'IssTotUSD'] },
+  { id: 'xrp',  cg: 'ripple',       name: '리플',         sym: 'XRP',  m: [...COMMON, 'FeeTotNtv'] },
+  { id: 'usdt', cg: 'tether',       name: '테더',         sym: 'USDT', m: [...COMMON] },
+  { id: 'shib', cg: 'shiba-inu',    name: '시바이누',     sym: 'SHIB', m: ['PriceUSD'] },
+  { id: 'doge', cg: 'dogecoin',     name: '도지코인',     sym: 'DOGE', m: [...COMMON, 'FeeTotNtv', 'HashRate', 'IssTotUSD'] },
+  { id: 'ada',  cg: 'cardano',      name: '에이다',       sym: 'ADA',  m: [...COMMON, 'FeeTotNtv', 'IssTotUSD'] },
+  { id: 'link', cg: 'chainlink',    name: '체인링크',     sym: 'LINK', m: [...COMMON, 'IssTotUSD'] },
+  { id: 'ltc',  cg: 'litecoin',     name: '라이트코인',   sym: 'LTC',  m: [...COMMON, 'FeeTotNtv', 'HashRate', 'IssTotUSD'] },
+  { id: 'bch',  cg: 'bitcoin-cash', name: '비트코인캐시', sym: 'BCH',  m: [...COMMON, 'FeeTotNtv', 'HashRate', 'IssTotUSD'] },
 ];
-const COMMON = ['PriceUSD', 'CapMrktCurUSD', 'CapMVRVCur', 'AdrActCnt', 'TxCnt', 'AdrBalCnt', 'SplyCur', 'ROI30d'];
 
 /* =====================================================================
-   2) 지표 묶음과 설명
+   2) 카테고리와 지표
+   - 왼쪽 메뉴에 나오는 순서 그대로예요
    - fmt: 숫자 표시 방법 (usd 달러, num 개수, ratio 비율, pct 퍼센트, hash 해시, coin 코인 수)
-   - needs + calc: 다른 지표 두 개로 계산하는 지표
+   - needs + calc: 다른 지표 두 개로 계산하는 지표 (직접 고칠 땐 재료 지표를 고쳐요)
    ===================================================================== */
-const SECTIONS = [
-  { id: 'flow',     name: '거래소 흐름' },
-  { id: 'value',    name: '가치평가' },
-  { id: 'activity', name: '네트워크 활동' },
-  { id: 'supply',   name: '채굴 · 공급' },
+const CATS = [
+  { id: 'flows', name: '거래소 자금 흐름',
+    desc: '거래소 지갑에 쌓인 코인과 입출금 흐름으로, 지금 팔려는 사람이 많은지 모으려는 사람이 많은지 살펴봐요.' },
+  { id: 'onchain', name: '온체인 데이터', isNew: true,
+    desc: '블록체인에 직접 기록되는 사용량·수수료·채굴·공급 데이터예요. 네트워크가 얼마나 활발하고 튼튼한지 보여줘요.' },
+  { id: 'market', name: '시장 지표',
+    desc: '가격과 가치평가 지표로 지금 시장이 과열인지 침체인지 가늠해요.' },
 ];
 
 const METRICS = [
-  { key: 'NetflowUSD', sec: 'flow', name: '거래소 순유입 (Netflow)', fmt: 'usd', kind: 'hist',
-    needs: ['FlowInExUSD', 'FlowOutExUSD'], calc: (a, b) => a - b,
-    short: '거래소로 들어온 금액에서 나간 금액을 뺀 값',
-    desc: '거래소로 들어온 금액 − 거래소에서 나간 금액이에요. 플러스(+)가 크면 팔려고 거래소로 옮기는 코인이 많다는 뜻이라 매도 압력으로, 마이너스(−)면 개인 지갑으로 옮겨 보관하는 흐름으로 해석해요. 상태는 최근 7일 합계로 판단해요.' },
-  { key: 'FlowInExUSD', sec: 'flow', name: '거래소 유입량 (Inflow)', fmt: 'usd',
-    short: '하루 동안 거래소 지갑으로 들어온 코인 가치',
-    desc: '하루 동안 거래소 지갑으로 들어온 코인의 달러 가치예요. 갑자기 크게 늘면 큰손이 팔 준비를 하는 신호일 수 있어요.' },
-  { key: 'FlowOutExUSD', sec: 'flow', name: '거래소 유출량 (Outflow)', fmt: 'usd',
-    short: '하루 동안 거래소에서 빠져나간 코인 가치',
-    desc: '하루 동안 거래소에서 빠져나간 코인의 달러 가치예요. 늘어나면 사서 개인 지갑에 보관하려는 사람이 많다는 뜻으로 봐요.' },
-  { key: 'SplyExNtv', sec: 'flow', name: '거래소 보유량 (Reserve)', fmt: 'coin',
+  // ----- 거래소 자금 흐름 -----
+  { key: 'SplyExNtv', cat: 'flows', name: '거래소 보유량', fmt: 'coin',
     short: '모든 거래소 지갑에 쌓여 있는 코인 수',
-    desc: '모든 거래소 지갑에 쌓여 있는 코인 수예요. 줄어들면 장기 보유 성향이, 늘어나면 팔 수 있는 물량이 늘어난 것으로 해석해요. 상태는 30일 전과 비교해요.' },
+    desc: '모든 거래소 지갑에 쌓여 있는 코인 수예요. 줄어들면 개인 지갑으로 옮겨 오래 보유하려는 흐름, 늘어나면 언제든 팔 수 있는 물량이 쌓이는 흐름으로 봐요.' },
+  { key: 'ReserveUSD', cat: 'flows', name: '거래소 보유량 (USD)', fmt: 'usd',
+    needs: ['SplyExNtv', 'PriceUSD'], calc: (a, b) => a * b,
+    short: '거래소 보유량을 달러로 바꾼 값',
+    desc: '거래소 보유량 × 가격. 거래소에 쌓인 코인이 지금 시세로 얼마어치인지 보여줘요.' },
+  { key: 'FlowInExNtv', cat: 'flows', name: '거래소 입금량', fmt: 'coin',
+    short: '하루 동안 거래소로 들어온 코인 수',
+    desc: '하루 동안 거래소 지갑으로 들어온 코인 수예요. 갑자기 크게 늘면 팔기 위해 옮기는 사람이 많다는 신호일 수 있어요.' },
+  { key: 'FlowInExUSD', cat: 'flows', name: '거래소 입금량 (USD)', fmt: 'usd',
+    short: '하루 동안 거래소로 들어온 코인의 달러 가치',
+    desc: '하루 동안 거래소 지갑으로 들어온 코인의 달러 가치예요.' },
+  { key: 'FlowOutExNtv', cat: 'flows', name: '거래소 출금량', fmt: 'coin',
+    short: '하루 동안 거래소에서 빠져나간 코인 수',
+    desc: '하루 동안 거래소에서 빠져나간 코인 수예요. 늘어나면 사서 개인 지갑에 보관하려는 사람이 많다는 뜻으로 봐요.' },
+  { key: 'FlowOutExUSD', cat: 'flows', name: '거래소 출금량 (USD)', fmt: 'usd',
+    short: '하루 동안 거래소에서 빠져나간 코인의 달러 가치',
+    desc: '하루 동안 거래소에서 빠져나간 코인의 달러 가치예요.' },
+  { key: 'NetflowNtv', cat: 'flows', name: '거래소 순입출금량 (Netflow)', fmt: 'coin', kind: 'hist',
+    needs: ['FlowInExNtv', 'FlowOutExNtv'], calc: (a, b) => a - b,
+    short: '입금량 − 출금량 (코인 수)',
+    desc: '거래소 입금량 − 출금량이에요. 플러스(+)면 거래소에 코인이 쌓이는 중이라 매도 압력으로, 마이너스(−)면 빠져나가는 중이라 보유 성향으로 해석해요. 상태는 최근 7일 합계로 판단해요.' },
+  { key: 'NetflowUSD', cat: 'flows', name: '거래소 순입출금량 (USD)', fmt: 'usd', kind: 'hist',
+    needs: ['FlowInExUSD', 'FlowOutExUSD'], calc: (a, b) => a - b,
+    short: '입금량 − 출금량 (달러)',
+    desc: '거래소 입금 금액 − 출금 금액(달러)이에요. 해석은 순입출금량(코인 수)과 같아요.' },
 
-  { key: 'CapMVRVCur', sec: 'value', name: 'MVRV 비율', fmt: 'ratio',
-    short: '시가총액 ÷ 실현 시가총액 — 고평가·저평가 판단',
-    desc: '시가총액 ÷ 실현 시가총액(각 코인이 마지막으로 옮겨졌을 때 가격으로 계산한 가치)이에요. 1보다 낮으면 보유자들이 평균적으로 손실 중이라 저평가로, 3.5보다 높으면 과열로 자주 해석해요.' },
-  { key: 'PriceUSD', sec: 'value', name: '가격', fmt: 'usd',
-    short: '여러 거래소 가격을 모은 기준 가격',
-    desc: '여러 거래소 가격을 모아 계산한 하루 기준 가격(달러)이에요.' },
-  { key: 'CapMrktCurUSD', sec: 'value', name: '시가총액', fmt: 'usd',
-    short: '가격 × 유통량',
-    desc: '가격 × 유통량. 이 코인 전체의 "몸값"이에요.' },
-  { key: 'ROI30d', sec: 'value', name: '30일 수익률', fmt: 'pct',
-    short: '30일 전에 샀다면 지금 수익률',
-    desc: '30일 전에 샀다면 지금 몇 % 수익(또는 손실)인지 보여줘요.' },
-
-  { key: 'AdrActCnt', sec: 'activity', name: '활성 주소 수', fmt: 'num',
+  // ----- 온체인 데이터 (새 카테고리) -----
+  { key: 'AdrActCnt', cat: 'onchain', name: '활성 주소 수', fmt: 'num',
     short: '하루 동안 거래에 참여한 고유 주소 수',
-    desc: '하루 동안 거래에 참여한 고유 주소 수예요. 사용자 활동의 크기를 대략 보여줘요. 상태는 최근 7일 평균을 90일 평균과 비교해요.' },
-  { key: 'TxCnt', sec: 'activity', name: '일일 거래 수', fmt: 'num',
+    desc: '하루 동안 보내거나 받는 거래에 참여한 고유 주소 수예요. 사용자 활동의 크기를 대략 보여줘요. 상태는 최근 7일 평균을 90일 평균과 비교해요.' },
+  { key: 'TxCnt', cat: 'onchain', name: '거래 수', fmt: 'num',
     short: '하루 동안 블록체인에 기록된 거래 개수',
     desc: '하루 동안 블록체인에 기록된 거래 개수예요.' },
-  { key: 'AdrBalCnt', sec: 'activity', name: '코인 보유 주소 수', fmt: 'num',
+  { key: 'TxTfrCnt', cat: 'onchain', name: '전송 건수', fmt: 'num',
+    short: '하루 동안 코인이 실제로 옮겨진 횟수',
+    desc: '하루 동안 코인이 실제로 다른 주소로 옮겨진 횟수예요. 거래 하나에 여러 전송이 들어 있을 수 있어서 거래 수보다 클 수 있어요.' },
+  { key: 'AdrBalCnt', cat: 'onchain', name: '코인 보유 주소 수', fmt: 'num',
     short: '잔고가 0보다 많은 주소 수',
     desc: '잔고가 0보다 많은 주소 수예요. 꾸준히 늘면 보유자층이 넓어지고 있다는 뜻이에요.' },
-  { key: 'FeeTotUSD', sec: 'activity', name: '거래 수수료 합계', fmt: 'usd',
+  { key: 'FeeTotNtv', cat: 'onchain', name: '수수료 합계', fmt: 'coin',
+    short: '하루 동안 낸 수수료 총량 (코인 수)',
+    desc: '하루 동안 사용자들이 낸 수수료 총량(코인 수)이에요. 네트워크가 붐빌수록 올라가요.' },
+  { key: 'FeeTotUSD', cat: 'onchain', name: '수수료 합계 (USD)', fmt: 'usd',
     needs: ['FeeTotNtv', 'PriceUSD'], calc: (a, b) => a * b,
-    short: '하루 동안 사용자들이 낸 수수료 총액',
-    desc: '하루 동안 사용자들이 낸 수수료 총액(달러)이에요. 네트워크가 붐빌수록 올라가요.' },
-
-  { key: 'HashRate', sec: 'supply', name: '해시레이트', fmt: 'hash',
+    short: '하루 동안 낸 수수료 총액 (달러)',
+    desc: '수수료 합계 × 가격. 하루 동안 사용자들이 낸 수수료 총액(달러)이에요.' },
+  { key: 'HashRate', cat: 'onchain', name: '해시레이트', fmt: 'hash',
     short: '채굴기들이 쓰는 계산 능력의 합',
     desc: '채굴기들이 쓰는 계산 능력의 합이에요. 높을수록 네트워크가 안전하고, 채굴자들이 앞으로를 좋게 본다는 뜻으로 해석해요.' },
-  { key: 'IssTotUSD', sec: 'supply', name: '신규 발행액', fmt: 'usd',
+  { key: 'IssTotUSD', cat: 'onchain', name: '신규 발행액', fmt: 'usd',
     short: '하루 동안 새로 만들어진 코인 가치',
     desc: '하루 동안 새로 만들어진 코인의 달러 가치예요. 채굴자나 검증자가 받는 보상이에요.' },
-  { key: 'SplyCur', sec: 'supply', name: '유통량', fmt: 'coin',
+  { key: 'SplyCur', cat: 'onchain', name: '유통량', fmt: 'coin',
     short: '지금까지 발행된 코인의 총 개수',
     desc: '지금까지 발행된 코인의 총 개수예요.' },
+
+  // ----- 시장 지표 -----
+  { key: 'CapMVRVCur', cat: 'market', name: 'MVRV 비율', fmt: 'ratio',
+    short: '시가총액 ÷ 실현 시가총액 — 고평가·저평가 판단',
+    desc: '시가총액 ÷ 실현 시가총액(각 코인이 마지막으로 옮겨졌을 때 가격으로 계산한 가치)이에요. 1보다 낮으면 보유자들이 평균적으로 손실 중이라 저평가로, 3.5보다 높으면 과열로 자주 해석해요.' },
+  { key: 'PriceUSD', cat: 'market', name: '가격', fmt: 'usd',
+    short: '여러 거래소 가격을 모은 하루 기준 가격',
+    desc: '여러 거래소 가격을 모아 계산한 하루 기준 가격(달러)이에요.' },
+  { key: 'CapMrktCurUSD', cat: 'market', name: '시가총액', fmt: 'usd',
+    short: '가격 × 유통량',
+    desc: '가격 × 유통량. 이 코인 전체의 "몸값"이에요.' },
+  { key: 'ROI30d', cat: 'market', name: '30일 수익률', fmt: 'pct',
+    short: '30일 전에 샀다면 지금 수익률',
+    desc: '30일 전에 샀다면 지금 몇 % 수익(또는 손실)인지 보여줘요.' },
 ];
+const metricByKey = k => METRICS.find(m => m.key === k);
 
 /* =====================================================================
    3) 데이터 가져오기
@@ -342,9 +408,8 @@ async function loadMarket() {
   try {
     const ids = COINS.map(c => c.cg).join(',');
     const r = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&price_change_percentage=24h,7d`);
-    const list = await r.json();
-    for (const m of list) MARKET[m.id] = m;
-  } catch {}   // 실패해도 온체인 데이터로 대신 보여줘요
+    for (const m of await r.json()) MARKET[m.id] = m;
+  } catch {}
 }
 
 async function getRows(id, metrics, tries = 0) {
@@ -361,31 +426,30 @@ async function getRows(id, metrics, tries = 0) {
 
 async function fetchCoin(c) {
   if (raw[c.id]) return raw[c.id];
-  const metrics = [...COMMON, ...c.extra];
   let rows;
   try {
-    rows = await getRows(c.id, metrics);
+    rows = await getRows(c.id, c.m);
   } catch (e) {
     rows = [];
-    for (const m of metrics) { try { rows.push(...await getRows(c.id, [m])); } catch {} }
+    for (const m of c.m) { try { rows.push(...await getRows(c.id, [m])); } catch {} }
   }
   const out = {};
-  for (const m of metrics) out[m] = new Map();
+  for (const m of c.m) out[m] = new Map();
   for (const r of rows) {
     const day = r.time.slice(0, 10);
-    for (const m of metrics) if (r[m] != null && r[m] !== '') out[m].set(day, parseFloat(r[m]));
+    for (const m of c.m) if (r[m] != null && r[m] !== '') out[m].set(day, parseFloat(r[m]));
   }
   return (raw[c.id] = out);
 }
 
 /* =====================================================================
-   4) 내가 고친 값 (overrides)
+   4) 내가 고친 값 (overrides) · 즐겨찾기
    - { values: { btc: { PriceUSD: { '2026-10-11': 82000 } } }, notes: { btc: { CapMVRVCur: '메모' } } }
-   - 이 브라우저에 저장된 것이 있으면 그걸, 없으면 GitHub에 올린 overrides.json을 써요
    ===================================================================== */
-const LS_KEY = 'chainlens-overrides';
+const LS_KEY = 'chainlens-overrides', FAV_KEY = 'chainlens-favs';
 let PUBLISHED = { values: {}, notes: {} };
 let OV = { values: {}, notes: {} };
+let FAVS = [];
 const tidy = o => ({ values: (o && o.values) || {}, notes: (o && o.notes) || {} });
 
 async function loadOverrides() {
@@ -396,10 +460,15 @@ async function loadOverrides() {
   let local = null;
   try { local = JSON.parse(localStorage.getItem(LS_KEY)); } catch {}
   OV = tidy(local || JSON.parse(JSON.stringify(PUBLISHED)));
+  try { FAVS = JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch {}
 }
 function saveLocal() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(OV)); } catch {}
   updateEditCount();
+}
+function toggleFav(key) {
+  FAVS = FAVS.includes(key) ? FAVS.filter(k => k !== key) : [...FAVS, key];
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(FAVS)); } catch {}
 }
 function setValue(coinId, key, day, value) {
   const byCoin = (OV.values[coinId] ??= {});
@@ -445,6 +514,7 @@ function seriesMap(coinId, def) {
   return out;
 }
 const toArr = map => [...map].sort((x, y) => (x[0] < y[0] ? -1 : 1)).map(([time, value]) => ({ time, value }));
+const series = (c, def) => toArr(seriesMap(c.id, def));
 
 /* =====================================================================
    6) 숫자 보기 좋게 바꾸기
@@ -480,23 +550,25 @@ const pctTxt = v => v == null || !isFinite(v) ? '–' : (v >= 0 ? '+' : '') + v.
 const pctCls = v => v == null || !isFinite(v) ? '' : v >= 0 ? 'up' : 'dn';
 const rawUnit = (def, c) => ({ usd: 'USD', ratio: '배', pct: '%', hash: 'TH/s', coin: c.sym })[def.fmt] || '개';
 const avg = a => a.reduce((s, x) => s + x.value, 0) / (a.length || 1);
+const lastOf = a => a.length ? a[a.length - 1].value : null;
+const chg24 = a => a.length > 1 && a[a.length - 2].value ? (lastOf(a) - a[a.length - 2].value) / Math.abs(a[a.length - 2].value) * 100 : null;
 
 /* =====================================================================
    7) 상태 표시 — 단순한 기준으로 자동 계산
    ===================================================================== */
 function status(def, arr) {
   if (arr.length < 31) return { t: 'N/A', c: 'mid' };
-  const last = arr[arr.length - 1].value;
+  const last = lastOf(arr);
   const vs90 = avg(arr.slice(-7)) / avg(arr.slice(-90)) - 1;
   switch (def.key) {
     case 'CapMVRVCur':
       return last < 1 ? { t: 'Undervalued', c: 'good' } : last > 3.5 ? { t: 'Overheated', c: 'bad' }
            : last > 2.4 ? { t: 'Caution', c: 'warn' } : { t: 'Neutral', c: 'mid' };
-    case 'NetflowUSD':
+    case 'NetflowUSD': case 'NetflowNtv':
       return arr.slice(-7).reduce((x, p) => x + p.value, 0) > 0 ? { t: 'Bearish', c: 'bad' } : { t: 'Bullish', c: 'good' };
-    case 'FlowInExUSD':
+    case 'FlowInExUSD': case 'FlowInExNtv':
       return vs90 > 0.15 ? { t: 'High Inflow', c: 'bad' } : { t: 'Normal', c: 'mid' };
-    case 'FlowOutExUSD':
+    case 'FlowOutExUSD': case 'FlowOutExNtv':
       return vs90 > 0.15 ? { t: 'High Outflow', c: 'good' } : { t: 'Normal', c: 'mid' };
     case 'SplyExNtv':
       return last < arr[arr.length - 31].value ? { t: 'Bullish', c: 'good' } : { t: 'Bearish', c: 'bad' };
@@ -504,7 +576,7 @@ function status(def, arr) {
       return last > 30 ? { t: 'Overheated', c: 'warn' } : last < -20 ? { t: 'Oversold', c: 'good' } : { t: 'Neutral', c: 'mid' };
     case 'HashRate':
       return vs90 > 0.03 ? { t: 'Rising', c: 'good' } : vs90 < -0.03 ? { t: 'Falling', c: 'bad' } : { t: 'Stable', c: 'mid' };
-    case 'AdrActCnt': case 'TxCnt': case 'FeeTotUSD':
+    case 'AdrActCnt': case 'TxCnt': case 'TxTfrCnt': case 'FeeTotUSD': case 'FeeTotNtv':
       return vs90 > 0.05 ? { t: 'Active', c: 'good' } : vs90 < -0.05 ? { t: 'Quiet', c: 'bad' } : { t: 'Normal', c: 'mid' };
     default:
       return vs90 > 0.05 ? { t: 'Rising', c: 'good' } : vs90 < -0.05 ? { t: 'Falling', c: 'bad' } : { t: 'Neutral', c: 'mid' };
@@ -515,7 +587,7 @@ function status(def, arr) {
 function sparkline(arr) {
   const pts = arr.slice(-7);
   if (pts.length < 2) return '';
-  const W = 120, H = 34, vals = pts.map(p => p.value);
+  const W = 130, H = 36, vals = pts.map(p => p.value);
   const min = Math.min(...vals), max = Math.max(...vals);
   const y = v => H - 3 - (v - min) / ((max - min) || 1) * (H - 6);
   const d = pts.map((p, i) => `${(i / (pts.length - 1) * W).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
@@ -525,134 +597,234 @@ function sparkline(arr) {
 }
 
 /* =====================================================================
-   8) 페이지 그리기
+   8) 주소(#) 읽기: #btc / #btc/flows / #btc/flows/NetflowUSD
    ===================================================================== */
 const $ = id => document.getElementById(id);
-const currentCoin = () => COINS.find(c => c.id === location.hash.slice(1)) || COINS[0];
-const icon = (c, cls = '') => MARKET[c.cg] && MARKET[c.cg].image
-  ? `<img src="${MARKET[c.cg].image}" alt="" class="${cls}">`
-  : `<span class="coin-dot ${cls}" style="background:var(--soft);display:inline-block"></span>`;
+function route() {
+  const [id, cat, key] = location.hash.slice(1).split('/');
+  const c = COINS.find(x => x.id === id) || COINS[0];
+  return { c, cat: CATS.find(x => x.id === cat) || (cat === 'favs' ? 'favs' : null), def: metricByKey(key) };
+}
+const link = (c, cat, key) => '#' + [c.id, cat, key].filter(Boolean).join('/');
+const icon = c => MARKET[c.cg] && MARKET[c.cg].image ? `<img src="${MARKET[c.cg].image}" alt="">` : `<span class="coin-dot"></span>`;
 
+/* ----- 코인 탭 (코인을 바꿔도 보고 있던 지표는 그대로) ----- */
 function drawTabs() {
-  const c = currentCoin();
+  const { c } = route();
+  const rest = location.hash.slice(1).split('/').slice(1).join('/');
   $('coins').innerHTML = COINS.map(x =>
-    `<a href="#${x.id}" class="${x === c ? 'on' : ''}">${icon(x)}${x.sym}</a>`).join('');
+    `<a href="#${x.id}${rest ? '/' + rest : ''}" class="${x === c ? 'on' : ''}">${icon(x)}${x.sym}</a>`).join('');
 }
 
-async function renderCoin() {
-  const c = currentCoin();
+/* ----- 왼쪽 메뉴 ----- */
+const openCats = new Set();
+function drawSide() {
+  const { c, cat, def } = route();
+  const curCat = def ? def.cat : (cat && cat.id) || (cat === 'favs' ? 'favs' : null);
+  if (curCat) openCats.add(curCat);
+  const q = $('search').value.trim().toLowerCase();
+  const match = m => !q || m.name.toLowerCase().includes(q);
+  const item = m => `<a href="${link(c, m.cat, m.key)}" class="${def === m ? 'on' : ''}">${m.name}</a>`;
+
+  const groups = [
+    { id: 'favs', name: '☆ 즐겨찾기', list: FAVS.map(metricByKey).filter(Boolean).filter(match) },
+    { id: '', name: '개요', list: null },
+    ...CATS.map(k => ({ id: k.id, name: k.name, isNew: k.isNew, list: METRICS.filter(m => m.cat === k.id && match(m)) })),
+  ];
+  $('tree').innerHTML = groups.map(g => {
+    if (!g.list) {   // 개요는 펼칠 것 없이 바로 이동
+      return `<div class="cat"><div class="cat-h ${!cat && !def ? 'on' : ''}"><span class="arr"></span><a href="${link(c)}">${g.name}</a></div></div>`;
+    }
+    if (q && !g.list.length) return '';
+    const open = q || openCats.has(g.id);
+    return `
+      <div class="cat ${open ? 'open' : ''}" data-cat="${g.id}">
+        <div class="cat-h ${curCat === g.id && !def ? 'on' : ''}">
+          <span class="arr">▶</span>
+          <a href="${link(c, g.id)}">${g.name}${g.isNew ? '<span class="newtag">NEW</span>' : ''}</a>
+        </div>
+        <div class="cat-items">
+          ${g.list.length ? g.list.map(item).join('') : '<div class="none">지표 옆 ☆를 눌러 추가해 보세요</div>'}
+        </div>
+      </div>`;
+  }).join('');
+
+  // 화살표 부분을 누르면 펼치기/접기만
+  $('tree').querySelectorAll('.cat[data-cat] .arr').forEach(a => a.onclick = e => {
+    const id = a.closest('.cat').dataset.cat;
+    openCats.has(id) ? openCats.delete(id) : openCats.add(id);
+    drawSide();
+  });
+}
+
+/* =====================================================================
+   9) 페이지 그리기
+   ===================================================================== */
+let chart = null;
+
+async function render() {
   drawTabs();
-  document.title = `${c.name}: 온체인 요약 | ChainLens`;
+  drawSide();
+  document.body.classList.remove('side-open');
+  const { c, cat, def } = route();
   if (!raw[c.id]) $('page').innerHTML = `<div class="loading">${c.name} 데이터 불러오는 중…</div>`;
-  try {
-    await fetchCoin(c);
-  } catch (e) {
+  try { await fetchCoin(c); }
+  catch (e) {
     $('page').innerHTML = `<div class="loading">데이터를 불러오지 못했어요. 잠시 후 새로고침해 주세요.<br>${e.message}</div>`;
     return;
   }
-  if (c !== currentCoin()) return;
-  drawPage(c);
+  if (c !== route().c) return;   // 그사이 다른 코인을 눌렀으면 그리지 않기
+  if (chart) { chart.remove(); chart = null; }
+  if (def) drawMetric(c, def);
+  else if (cat) drawCategory(c, cat);
+  else drawSummary(c);
+  window.scrollTo(0, 0);
+}
+const rerender = () => { const { c, cat, def } = route(); if (chart) { chart.remove(); chart = null; } def ? drawMetric(c, def) : cat ? drawCategory(c, cat) : drawSummary(c); drawSide(); };
+
+function noDataNotice(c) {
+  const has = METRICS.some(m => m.key !== 'PriceUSD' && series(c, m).length);
+  return has ? '' : `<div class="notice">💡 <b>${c.name}</b>는 무료로 받을 수 있는 온체인 데이터가 없어서 가격만 자동으로 나와요.
+    오른쪽 위 <b>✎ 데이터 편집</b>을 켜고 지표를 눌러 날짜별 값을 직접 입력하면, 다른 코인처럼 표와 차트가 채워져요.</div>`;
 }
 
-function drawPage(c) {
-  const get = key => toArr(seriesMap(c.id, METRICS.find(m => m.key === key)));
-  const price = get('PriceUSD'), cap = get('CapMrktCurUSD'), sply = get('SplyCur');
-  const last = a => a.length ? a[a.length - 1].value : null;
-  const back = (a, n) => a.length > n ? a[a.length - 1 - n].value : null;
+/* ----- 개요 페이지 ----- */
+function drawSummary(c) {
   const m = MARKET[c.cg] || {};
-
-  // 맨 위 요약: 시세는 CoinGecko 실시간, 없으면 온체인 데이터로 대신
-  const px    = m.current_price ?? last(price);
-  const ch24  = m.price_change_percentage_24h_in_currency ?? (last(price) / back(price, 1) - 1) * 100;
-  const ch7   = m.price_change_percentage_7d_in_currency ?? (last(price) / back(price, 7) - 1) * 100;
-  const mcap  = m.market_cap ?? last(cap);
-  const vol   = m.total_volume;
-  const supply = m.circulating_supply ?? last(sply);
+  const price = series(c, metricByKey('PriceUSD'));
+  const back = n => price.length > n ? price[price.length - 1 - n].value : null;
+  const px     = m.current_price ?? lastOf(price);
+  const ch24   = m.price_change_percentage_24h_in_currency ?? (lastOf(price) / back(1) - 1) * 100;
+  const ch7    = m.price_change_percentage_7d_in_currency ?? (lastOf(price) / back(7) - 1) * 100;
+  const mcap   = m.market_cap ?? lastOf(series(c, metricByKey('CapMrktCurUSD')));
+  const supply = m.circulating_supply ?? lastOf(series(c, metricByKey('SplyCur')));
+  const big = v => v ? Math.round(v).toLocaleString('en-US') : '–';
 
   let html = `
     <div class="hero">
-      <div class="id">
-        ${icon(c)}
-        <div>
-          <div class="nm">${c.name}<small>${c.sym}</small></div>
-          <div class="px num">${fullUsd(px)}</div>
-        </div>
+      <div class="id">${icon(c)}
+        <div><div class="nm">${c.name}<small>${c.sym}</small></div><div class="px num">${fullUsd(px)}</div></div>
       </div>
       <div class="stat"><small>24시 %</small><b class="num ${pctCls(ch24)}">${pctTxt(ch24)}</b></div>
       <div class="stat"><small>7일 %</small><b class="num ${pctCls(ch7)}">${pctTxt(ch7)}</b></div>
-      <div class="stat"><small>시가총액</small><b class="num">${mcap ? '$' + Math.round(mcap).toLocaleString('en-US') : '–'}</b></div>
-      <div class="stat"><small>거래량(24시)</small><b class="num">${vol ? '$' + Math.round(vol).toLocaleString('en-US') : '–'}</b></div>
-      <div class="stat"><small>유통 공급량</small><b class="num">${supply ? Math.round(supply).toLocaleString('en-US') + ' ' + c.sym : '–'}</b></div>
+      <div class="stat"><small>시가총액</small><b class="num">${mcap ? '$' + big(mcap) : '–'}</b></div>
+      <div class="stat"><small>거래량(24시)</small><b class="num">${m.total_volume ? '$' + big(m.total_volume) : '–'}</b></div>
+      <div class="stat"><small>유통 공급량</small><b class="num">${supply ? big(supply) + ' ' + c.sym : '–'}</b></div>
     </div>
-
-    <h2 class="title">주요 지표</h2>
+    ${noDataNotice(c)}
+    <h2 class="title" style="margin-bottom:18px">주요 지표</h2>
     <div class="panels">`;
 
-  // 주요 지표: 묶음별 표 (지표 이름 + 한 줄 설명 + 상태)
-  const rowsAll = [];
-  for (const s of SECTIONS) {
-    const rows = METRICS.filter(d => d.sec === s.id).map(def => {
-      const arr = toArr(seriesMap(c.id, def));
+  for (const k of CATS) {
+    const rows = METRICS.filter(d => d.cat === k.id).map(def => {
+      const arr = series(c, def);
       if (!arr.length) return '';
-      rowsAll.push({ def, arr });
       const st = status(def, arr);
       return `
-        <button class="prow" data-key="${def.key}">
+        <a class="prow" href="${link(c, def.cat, def.key)}">
           <div class="txt">
             <div class="pname">${def.name}${editedDays(c.id, def).length ? '<span class="edited">✎ 수정됨</span>' : ''}</div>
             <div class="pdesc">${def.short}</div>
           </div>
           <span class="pill s-${st.c}">${st.t}</span>
-        </button>`;
+        </a>`;
     }).join('');
-    if (rows.trim()) html += `
+    html += `
       <div class="panel">
-        <h3>${s.name}</h3>
+        <h3>${k.name} <a href="${link(c, k.id)}">전체 보기 →</a></h3>
         <div class="phead"><span>지표</span><span>상태(24시)</span></div>
-        ${rows}
+        ${rows.trim() || '<div class="prow"><span class="pdesc">아직 데이터가 없어요</span></div>'}
       </div>`;
   }
-  html += `</div>`;
-
-  // 전체 지표 표
-  html += `
-    <h2 class="title">전체 온체인 지표</h2>
-    <p class="sub">${c.name}에서 볼 수 있는 모든 지표의 최신 값이에요. 기준일 ${price.length ? price[price.length - 1].time : '–'} (UTC)</p>
-    <table class="tbl">
-      <thead><tr>
-        <th>#</th><th>지표</th><th class="col-desc">설명</th>
-        <th class="r">최신 값</th><th class="r">24H (%)</th><th class="r col-spark">최근 7일</th>
-      </tr></thead>
-      <tbody>${rowsAll.map(({ def, arr }, i) => {
-        const v = arr[arr.length - 1].value, p = arr.length > 1 ? arr[arr.length - 2].value : null;
-        const chg = p ? (v - p) / Math.abs(p) * 100 : null;
-        const memo = noteOf(c.id, def.key);
-        return `
-        <tr class="click" data-key="${def.key}">
-          <td class="rank">${i + 1}</td>
-          <td class="mname">${def.name}${memo ? `<span class="memo" data-memo="${def.key}"></span>` : ''}</td>
-          <td class="mdesc">${def.desc}</td>
-          <td class="r num">${fmt(v, def, c)}</td>
-          <td class="r num ${pctCls(chg)}">${pctTxt(chg)}</td>
-          <td class="r spark">${sparkline(arr)}</td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table>`;
-
-  $('page').innerHTML = html;
-  // 메모는 사용자가 쓴 글이라 안전하게 글자로만 넣기
-  document.querySelectorAll('[data-memo]').forEach(el => el.textContent = '메모: ' + noteOf(c.id, el.dataset.memo));
-  document.querySelectorAll('[data-key]').forEach(el => el.onclick = () => openDetail(el.dataset.key));
+  $('page').innerHTML = html + '</div>';
 }
 
-/* =====================================================================
-   9) 상세 차트 창
-   ===================================================================== */
-let chart, mainSeries, priceSeries, curDef, days = 365;
+/* ----- 카테고리 페이지 (표) ----- */
+function drawCategory(c, cat) {
+  const isFav = cat === 'favs';
+  const list = isFav ? FAVS.map(metricByKey).filter(Boolean) : METRICS.filter(m => m.cat === cat.id);
+  const title = isFav ? '즐겨찾기' : cat.name;
+  const lead = isFav ? '☆를 눌러 모아 둔 지표예요.' : cat.desc;
+
+  let html = `
+    <h2 class="title">${title}${!isFav && cat.isNew ? ' <span class="newtag">NEW</span>' : ''}</h2>
+    <p class="lead">${c.name}(${c.sym}) · ${lead}</p>
+    ${noDataNotice(c)}
+    <table class="tbl">
+      <thead><tr>
+        <th class="star"></th><th>지표</th><th class="col-desc">설명</th>
+        <th class="r">최신 값</th><th class="r">24H (%)</th><th class="r col-spark">최근 7일</th>
+      </tr></thead>
+      <tbody>`;
+  if (!list.length) html += `<tr><td colspan="6" class="nodata" style="text-align:center;padding:40px">아직 즐겨찾기한 지표가 없어요. 지표 옆 ☆를 눌러 보세요.</td></tr>`;
+  for (const def of list) {
+    const arr = series(c, def), memo = noteOf(c.id, def.key), ch = chg24(arr);
+    html += `
+      <tr class="click" data-href="${link(c, def.cat, def.key)}">
+        <td class="star"><button class="starbtn ${FAVS.includes(def.key) ? 'on' : ''}" data-fav="${def.key}" title="즐겨찾기">★</button></td>
+        <td class="mname">${def.name}${editedDays(c.id, def).length ? '<span class="edited">✎</span>' : ''}
+          ${memo ? `<span class="memo" data-memo="${def.key}"></span>` : ''}</td>
+        <td class="mdesc">${def.desc}</td>
+        <td class="r num">${arr.length ? fmt(lastOf(arr), def, c) : '<span class="nodata">데이터 없음</span>'}</td>
+        <td class="r num ${pctCls(ch)}">${pctTxt(ch)}</td>
+        <td class="r spark">${sparkline(arr)}</td>
+      </tr>`;
+  }
+  $('page').innerHTML = html + '</tbody></table>';
+  document.querySelectorAll('[data-memo]').forEach(el => el.textContent = '메모: ' + noteOf(c.id, el.dataset.memo));
+  document.querySelectorAll('tr[data-href]').forEach(tr => tr.onclick = () => location.hash = tr.dataset.href);
+  document.querySelectorAll('[data-fav]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); toggleFav(b.dataset.fav); rerender();
+  });
+}
+
+/* ----- 지표 차트 페이지 ----- */
+let days = 365, showPrice = true, logScale = false;
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-function ensureChart() {
-  if (chart) return;
+function drawMetric(c, def) {
+  const cat = CATS.find(k => k.id === def.cat);
+  const arr = series(c, def);
+  const st = status(def, arr), ch = chg24(arr);
+  $('page').innerHTML = `
+    <div class="crumb"><a href="${link(c)}">${c.name}</a> › <a href="${link(c, cat.id)}">${cat.name}</a></div>
+    <div class="mhead">
+      <h2>${def.name}</h2>
+      <button class="starbtn ${FAVS.includes(def.key) ? 'on' : ''}" id="favBtn" title="즐겨찾기">★</button>
+      ${arr.length ? `<span class="pill s-${st.c}">${st.t}</span>` : ''}
+    </div>
+    <p class="lead" style="margin-bottom:0">${def.desc}</p>
+    <div class="mstats">
+      <div><small>최신 값</small><b class="num">${fmt(lastOf(arr), def, c)}</b></div>
+      <div><small>24H (%)</small><b class="num ${pctCls(ch)}">${pctTxt(ch)}</b></div>
+      <div><small>기준일 (UTC)</small><b class="num">${arr.length ? arr[arr.length - 1].time : '–'}</b></div>
+    </div>
+    <div class="toolbar">
+      <div class="seg" id="range">
+        ${[[90, '3개월'], [365, '1년'], [1095, '3년'], [0, '전체']].map(([d, t]) =>
+          `<button data-days="${d}" class="${d === days ? 'on' : ''}">${t}</button>`).join('')}
+      </div>
+      <label class="chk"><input type="checkbox" id="showPrice" ${showPrice ? 'checked' : ''}> 가격 겹쳐 보기</label>
+      <label class="chk"><input type="checkbox" id="logScale" ${logScale ? 'checked' : ''}> 로그 스케일</label>
+    </div>
+    <div class="chartbox"><div id="chart"></div><div id="chartMsg"></div></div>
+    <div class="legend">
+      <span><i style="background:var(--brand)"></i>${def.name}</span>
+      <span id="lgPrice"><i style="background:var(--price)"></i>가격 (USD)</span>
+      <span id="lgEdit"><i style="background:var(--down);height:8px;width:8px;border-radius:50%"></i>직접 수정한 날짜</span>
+    </div>
+    <div id="editArea"></div>`;
+
+  $('favBtn').onclick = () => { toggleFav(def.key); $('favBtn').classList.toggle('on'); drawSide(); };
+  $('range').onclick = e => { if (e.target.dataset.days) { days = Number(e.target.dataset.days); rerender(); } };
+  $('showPrice').onchange = e => { showPrice = e.target.checked; rerender(); };
+  $('logScale').onchange = e => { logScale = e.target.checked; rerender(); };
+
+  drawChart(c, def, arr);
+  drawEditArea(c, def);
+}
+
+function drawChart(c, def, all) {
   chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
     layout: { background: { color: 'transparent' }, textColor: cssVar('--muted'), fontSize: 12 },
@@ -661,72 +833,49 @@ function ensureChart() {
     leftPriceScale: { borderColor: cssVar('--line') },
     timeScale: { borderColor: cssVar('--line') },
   });
-}
-
-function openDetail(key) {
-  curDef = METRICS.find(m => m.key === key);
-  $('dlg').showModal();
-  ensureChart();
-  drawDetail();
-  drawEditArea();
-}
-
-function drawDetail() {
-  const c = currentCoin(), def = curDef;
-  $('dCoin').textContent = `${c.name} · ${c.sym}`;
-  $('dTitle').textContent = def.name;
-  $('dDesc').textContent = def.desc;
-  $('lgName').textContent = def.name;
-
-  const all = toArr(seriesMap(c.id, def));
   const data = days ? all.slice(-days) : all;
-  const fmtFn = v => fmt(v, def, c);
-
-  if (mainSeries) chart.removeSeries(mainSeries);
-  if (priceSeries) { chart.removeSeries(priceSeries); priceSeries = null; }
-
+  const pf = f => ({ type: 'custom', formatter: f, minMove: 1e-10 });
+  let main;
   if (def.kind === 'hist') {
-    mainSeries = chart.addHistogramSeries({ priceScaleId: 'right', priceFormat: { type: 'custom', formatter: fmtFn } });
-    mainSeries.setData(data.map(p => ({ ...p, color: p.value >= 0 ? cssVar('--down') : cssVar('--up') })));
+    main = chart.addHistogramSeries({ priceScaleId: 'right', priceFormat: pf(v => fmt(v, def, c)) });
+    main.setData(data.map(p => ({ ...p, color: p.value >= 0 ? cssVar('--down') : cssVar('--up') })));
   } else {
-    mainSeries = chart.addAreaSeries({
+    main = chart.addAreaSeries({
       priceScaleId: 'right', lineColor: cssVar('--brand'), lineWidth: 2,
-      topColor: 'rgba(90,72,224,.25)', bottomColor: 'rgba(90,72,224,0)',
-      priceFormat: { type: 'custom', formatter: fmtFn },
+      topColor: 'rgba(90,72,224,.22)', bottomColor: 'rgba(90,72,224,0)', priceFormat: pf(v => fmt(v, def, c)),
     });
-    mainSeries.setData(data);
+    main.setData(data);
   }
-
   // 직접 고친 날짜에 빨간 점 찍기
   const from = data.length ? data[0].time : '';
   const marks = editedDays(c.id, def).filter(d => d >= from)
     .map(time => ({ time, position: 'inBar', color: cssVar('--down'), shape: 'circle' }));
-  mainSeries.setMarkers(marks);
+  main.setMarkers(marks);
   $('lgEdit').style.display = marks.length ? '' : 'none';
 
-  // 가격 겹쳐 보기
-  const showPrice = $('showPrice').checked && def.key !== 'PriceUSD';
-  if (showPrice) {
-    priceSeries = chart.addLineSeries({
-      priceScaleId: 'left', color: cssVar('--price'), lineWidth: 1.5,
-      priceFormat: { type: 'custom', formatter: v => fmt(v, { fmt: 'usd' }, c) },
-    });
-    priceSeries.setData(toArr(baseMap(c.id, 'PriceUSD')).filter(p => p.time >= from));
+  const withPrice = showPrice && def.key !== 'PriceUSD';
+  if (withPrice) {
+    const p = chart.addLineSeries({ priceScaleId: 'left', color: cssVar('--price'), lineWidth: 1.5,
+                                    priceFormat: pf(v => fmt(v, { fmt: 'usd' }, c)) });
+    p.setData(toArr(baseMap(c.id, 'PriceUSD')).filter(x => !from || x.time >= from));
   }
-  const mode = $('logScale').checked && def.kind !== 'hist' ? 1 : 0;
-  chart.applyOptions({ leftPriceScale: { visible: showPrice, mode }, rightPriceScale: { mode } });
-  $('lgPrice').style.display = showPrice ? '' : 'none';
+  const mode = logScale && def.kind !== 'hist' ? 1 : 0;
+  chart.applyOptions({ leftPriceScale: { visible: withPrice, mode }, rightPriceScale: { mode } });
+  $('lgPrice').style.display = withPrice ? '' : 'none';
   chart.timeScale().fitContent();
+
+  $('chartMsg').innerHTML = data.length ? '' : def.calc
+    ? `아직 데이터가 없어요.<br>이 지표는 ${def.needs.map(k => metricByKey(k).name).join(', ')}로 계산돼요. 그 지표에 값을 입력해 보세요.`
+    : `아직 데이터가 없어요.<br>오른쪽 위 <b>✎ 데이터 편집</b>을 켜면 아래에서 날짜별 값을 직접 입력할 수 있어요.`;
 }
 
-/* ----- 편집 영역 (편집 모드일 때만 보여요) ----- */
-function drawEditArea() {
-  const c = currentCoin(), def = curDef, box = $('editArea');
+/* ----- 편집 영역 ----- */
+function drawEditArea(c, def) {
+  const box = $('editArea');
   let html = `<h4>✎ 이 지표 수정하기</h4>`;
-
   if (def.calc) {
-    const names = def.needs.map(k => (METRICS.find(m => m.key === k) || { name: k }).name).join(', ');
-    html += `<p class="hint">이 지표는 자동으로 계산돼요 (${names}). 그 지표들을 고치면 여기도 함께 바뀌어요.</p>`;
+    html += `<p class="hint">이 지표는 자동으로 계산돼요. 아래 재료 지표를 고치면 함께 바뀌어요:
+      ${def.needs.map(k => { const m = metricByKey(k); return `<a href="${link(c, m.cat, m.key)}">${m.name}</a>`; }).join(', ')}</p>`;
   } else {
     const orig = (raw[c.id] && raw[c.id][def.key]) || new Map();
     const merged = toArr(baseMap(c.id, def.key));
@@ -740,57 +889,53 @@ function drawEditArea() {
         <input type="number" step="any" id="addVal" placeholder="값 (${rawUnit(def, c)})">
         <button class="btn primary" id="addBtn">이 날짜에 저장</button>
       </div>
-      <div class="tablewrap"><table class="etbl">
+      ${rows.length ? `<div class="tablewrap"><table class="etbl">
         <thead><tr><th>날짜</th><th>원본 값</th><th>내가 고친 값</th><th></th></tr></thead>
         <tbody>${rows.map(d => `
           <tr class="${d in mine ? 'changed' : ''}">
             <td>${d}</td>
-            <td>${orig.has(d) ? fmt(orig.get(d), def, c) : '<span style="color:var(--muted)">없음</span>'}</td>
+            <td>${orig.has(d) ? fmt(orig.get(d), def, c) : '<span class="nodata">없음</span>'}</td>
             <td><input type="number" step="any" data-day="${d}" value="${d in mine ? mine[d] : ''}" placeholder="${orig.has(d) ? orig.get(d) : ''}"></td>
             <td>${d in mine ? `<button class="btn" data-undo="${d}">되돌리기</button>` : ''}</td>
           </tr>`).join('')}
-        </tbody></table></div>`;
+        </tbody></table></div>` : ''}`;
   }
   html += `<p class="hint" style="margin-top:14px">표에 보일 메모</p>
-    <textarea id="memo" placeholder="예: 10월 둘째 주 대규모 유출 — 기관 매수 추정"></textarea>`;
+    <textarea id="memo" placeholder="예: 10월 둘째 주 대규모 출금 — 기관 매수 추정"></textarea>`;
   box.innerHTML = html;
   $('memo').value = noteOf(c.id, def.key);
 
-  const refresh = () => { drawDetail(); drawEditArea(); drawPage(c); };
   if (!def.calc) {
     $('addBtn').onclick = () => {
       const d = $('addDay').value, v = $('addVal').value;
       if (!d || v === '') return alert('날짜와 값을 모두 넣어 주세요.');
-      setValue(c.id, def.key, d, parseFloat(v)); refresh();
+      setValue(c.id, def.key, d, parseFloat(v)); rerender();
     };
     box.querySelectorAll('input[data-day]').forEach(inp => inp.onchange = () => {
-      setValue(c.id, def.key, inp.dataset.day, inp.value === '' ? '' : parseFloat(inp.value)); refresh();
+      setValue(c.id, def.key, inp.dataset.day, inp.value === '' ? '' : parseFloat(inp.value)); rerender();
     });
-    box.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => {
-      setValue(c.id, def.key, b.dataset.undo, ''); refresh();
-    });
+    box.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => { setValue(c.id, def.key, b.dataset.undo, ''); rerender(); });
   }
-  $('memo').onchange = () => { setNote(c.id, def.key, $('memo').value); drawPage(c); };
+  $('memo').onchange = () => setNote(c.id, def.key, $('memo').value);
 }
 
 /* =====================================================================
    10) 버튼 연결
    ===================================================================== */
-$('dClose').onclick = () => $('dlg').close();
-$('dlg').addEventListener('click', e => { if (e.target === $('dlg')) $('dlg').close(); });
-$('range').onclick = e => {
-  if (!e.target.dataset.days) return;
-  days = Number(e.target.dataset.days);
-  [...$('range').children].forEach(b => b.classList.toggle('on', b === e.target));
-  drawDetail();
-};
-$('showPrice').onchange = drawDetail;
-$('logScale').onchange = drawDetail;
-
 $('editToggle').onclick = () => {
   const on = document.body.classList.toggle('editing');
   $('editToggle').textContent = on ? '✓ 편집 끝내기' : '✎ 데이터 편집';
 };
+$('search').oninput = drawSide;
+$('sideClose').onclick = () => {
+  if (matchMedia('(max-width: 960px)').matches) document.body.classList.remove('side-open');
+  else document.body.classList.add('side-closed');
+};
+$('sideOpen').onclick = () => {
+  if (matchMedia('(max-width: 960px)').matches) document.body.classList.add('side-open');
+  else document.body.classList.remove('side-closed');
+};
+$('sideShade').onclick = () => document.body.classList.remove('side-open');
 
 $('exportBtn').onclick = () => {
   const blob = new Blob([JSON.stringify(OV, null, 2)], { type: 'application/json' });
@@ -804,7 +949,7 @@ $('importBtn').onclick = () => $('importFile').click();
 $('importFile').onchange = async () => {
   const f = $('importFile').files[0];
   if (!f) return;
-  try { OV = tidy(JSON.parse(await f.text())); saveLocal(); drawPage(currentCoin()); }
+  try { OV = tidy(JSON.parse(await f.text())); saveLocal(); rerender(); }
   catch { alert('파일을 읽지 못했어요. overrides.json 파일이 맞는지 확인해 주세요.'); }
   $('importFile').value = '';
 };
@@ -813,14 +958,14 @@ $('resetBtn').onclick = () => {
   try { localStorage.removeItem(LS_KEY); } catch {}
   OV = JSON.parse(JSON.stringify(PUBLISHED));
   updateEditCount();
-  drawPage(currentCoin());
+  rerender();
 };
 
-window.addEventListener('hashchange', renderCoin);
+window.addEventListener('hashchange', render);
 
-// 시작! (시세와 저장된 수정본을 먼저 불러오고, 코인 화면 그리기)
+// 시작! (저장된 수정본과 시세를 먼저 불러오고 화면 그리기)
 drawTabs();
-Promise.all([loadOverrides(), loadMarket()]).then(() => { updateEditCount(); renderCoin(); });
+Promise.all([loadOverrides(), loadMarket()]).then(() => { updateEditCount(); render(); });
 </script>
 </body>
 </html>
