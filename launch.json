@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "site",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\Users\\User\\AppData\\Local\\Temp\\claude\\C--Users-User-AppData-Roaming-Claude-scratch-workspaces-27c0c755-b493-4518-ab63-6ecccaed08e9-95841b2f-0d35-480b-9caf-3cd545791009-scratch-2026-10-12-fcf5ea\\310811df-6197-4a1c-bc79-f67a98d710ca\\scratchpad\\serve.ps1", "-Root", "C:\\Users\\User\\AppData\\Roaming\\Claude\\scratch-workspaces\\27c0c755-b493-4518-ab63-6ecccaed08e9\\95841b2f-0d35-480b-9caf-3cd545791009\\scratch-2026-10-12-fcf5ea"],
+      "port": 8765
+    }
+  ]
+}
