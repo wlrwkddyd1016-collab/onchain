@@ -12,7 +12,7 @@
   /* ===== 색상표: 여기 값만 바꾸면 사이트 전체 색이 바뀌어요 ===== */
   :root {
     --bg: #ffffff;       /* 배경 */
-    --soft: #f7f7f9;     /* 살짝 회색 배경 */
+    --soft: #f4f4f7;     /* 살짝 회색 배경 */
     --line: #ececf0;     /* 테두리 */
     --text: #17171c;     /* 글자 */
     --muted: #7a7a86;    /* 흐린 글자 */
@@ -20,7 +20,10 @@
     --brand-soft: #f1effd;
     --up: #0fa86b;       /* 상승 (초록) */
     --down: #e5484d;     /* 하락 (빨강) */
-    --price: #f2a93b;    /* 차트 가격선 */
+    --bar: #13a26b;      /* 차트 막대 (초록) */
+    --priceline: #17171c;/* 차트 가격선 (검정) */
+    --sma: #f2a93b;      /* 이동평균선 */
+    --ema: #2f80ed;      /* 지수이동평균선 */
     --star: #f5b400;     /* 즐겨찾기 별 */
   }
   * { box-sizing: border-box; }
@@ -29,7 +32,7 @@
     font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  button { font: inherit; }
+  button, select { font: inherit; }
   a { color: inherit; }
   .num { font-variant-numeric: tabular-nums; }
 
@@ -70,7 +73,7 @@
   }
   .side-top { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 10px; }
   .side-top b { font-size: 15px; }
-  .iconbtn { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; }
+  .iconbtn { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; line-height: 1; }
   .iconbtn:hover { background: var(--soft); color: var(--text); }
   #search { width: 100%; margin-bottom: 10px; }
 
@@ -163,32 +166,56 @@
   .memo { display: block; color: var(--brand); font-size: 12px; font-weight: 500; margin-top: 3px; white-space: pre-wrap; }
 
   /* ===== 지표 차트 페이지 ===== */
-  .crumb { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .crumb { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
   .crumb a { color: var(--muted); text-decoration: none; }
   .crumb a:hover { color: var(--brand); }
-  .mhead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 8px; }
-  .mhead h2 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
-  .mstats { display: flex; flex-wrap: wrap; gap: 0; margin: 18px 0 20px; }
-  .mstats div { border-left: 1px solid var(--line); padding: 2px 18px; }
-  .mstats div:first-child { border-left: 0; padding-left: 0; }
-  .mstats small { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-  .mstats b { font-size: 18px; }
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-  .seg { display: flex; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
-  .seg button { border: 0; background: none; color: var(--muted); padding: 5px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-  .seg button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-  label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 5px; align-items: center; cursor: pointer; }
-  .chartbox { position: relative; height: min(560px, 62vh); border: 1px solid var(--line); border-radius: 12px; }
+
+  .ccard { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .chead { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+           padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .chead b { font-size: 16px; }
+  .cicons { display: flex; gap: 4px; }
+  .cicons .iconbtn { font-size: 15px; padding: 6px 8px; }
+  .cicons .starbtn { font-size: 16px; padding: 6px 8px; }
+  .cbody { padding: 16px 20px 18px; }
+
+  /* 차트 위 선택 칸들 (거래소 / 단위 / 이평 …) */
+  .controls { display: inline-flex; flex-wrap: wrap; background: var(--soft); border-radius: 8px; padding: 4px; margin-bottom: 14px; }
+  .ctl { display: flex; flex-direction: column; padding: 4px 10px; border-left: 1px solid #e2e2e8; }
+  .ctl:first-child { border-left: 0; }
+  .ctl small { font-size: 11px; color: var(--muted); }
+  .ctl select { border: 0; background: transparent; font-size: 13px; font-weight: 600; color: var(--text);
+                padding: 2px 0; cursor: pointer; min-width: 64px; }
+  .ctl select:focus { outline: none; }
+
+  .rangebar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 6px; }
+  .range { display: flex; border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+  .range button { border: 0; background: none; color: var(--muted); padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .range button.on { color: var(--brand); font-weight: 700; }
+  .mval { font-size: 13px; color: var(--muted); }
+  .mval b { color: var(--text); font-size: 15px; margin-left: 4px; }
+
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; font-size: 12px; color: #4a4a57; margin: 10px 0 6px; }
+  .legend i { display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .lg-line { width: 14px; height: 2px; }
+  .lg-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  .chartbox { position: relative; height: min(560px, 60vh); }
   #chart { position: absolute; inset: 0; }
   #chartMsg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
               color: var(--muted); font-size: 14px; padding: 20px; pointer-events: none; line-height: 1.7; }
-  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px; }
-  .legend i { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 5px; }
+  .ccard:fullscreen { border-radius: 0; overflow: auto; }
+  .ccard:fullscreen .chartbox { height: calc(100vh - 230px); }
+
+  .about { margin-top: 26px; }
+  .about h3 { font-size: 16px; margin: 0 0 8px; }
+  .about p { color: #4a4a57; font-size: 14px; line-height: 1.7; margin: 0; max-width: 860px; }
 
   /* ===== 편집 영역 (편집 모드일 때만) ===== */
   #editArea { display: none; margin-top: 26px; border: 1px solid #d9d3fb; border-radius: 12px; padding: 16px 18px; }
   body.editing #editArea { display: block; }
   #editArea h4 { margin: 0 0 8px; font-size: 15px; color: var(--brand); }
+  #editArea h5 { margin: 18px 0 6px; font-size: 13px; }
   #editArea .hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; line-height: 1.6; }
   .addrow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
   input, textarea { background: var(--bg); color: var(--text); border: 1px solid #d8d8e0;
@@ -201,6 +228,7 @@
   .etbl td input { width: 100%; min-width: 110px; }
   .etbl tr.changed td { background: var(--brand-soft); }
   textarea { width: 100%; min-height: 60px; resize: vertical; }
+  #bulk { min-height: 110px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
 
   .loading { color: var(--muted); padding: 80px 0; text-align: center; }
   footer { color: var(--muted); font-size: 12px; line-height: 1.7; border-top: 1px solid var(--line);
@@ -230,7 +258,10 @@
     .hero .stat:nth-of-type(4) { border-left: 0; padding-left: 0; }
     .tbl .col-spark, .tbl td.spark { display: none; }
     .tbl td { padding: 14px 8px; }
-    .chartbox { height: 340px; }
+    .chead, .cbody { padding-left: 12px; padding-right: 12px; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+    .ctl { border-left: 0; }
+    .chartbox { height: 360px; }
   }
 </style>
 </head>
@@ -307,14 +338,16 @@ const COINS = [
    2) 카테고리와 지표
    - 왼쪽 메뉴에 나오는 순서 그대로예요
    - fmt: 숫자 표시 방법 (usd 달러, num 개수, ratio 비율, pct 퍼센트, hash 해시, coin 코인 수)
+   - agg: 주·월 단위로 묶을 때 방법 (sum 합계, avg 평균, 없으면 마지막 값)
+   - style: 처음 보여줄 차트 모양 (column 막대, line 선, area 영역)
    - needs + calc: 다른 지표 두 개로 계산하는 지표 (직접 고칠 땐 재료 지표를 고쳐요)
    ===================================================================== */
 const CATS = [
-  { id: 'flows', name: '거래소 자금 흐름',
+  { id: 'flows', name: '거래소 자금 흐름', style: 'column',
     desc: '거래소 지갑에 쌓인 코인과 입출금 흐름으로, 지금 팔려는 사람이 많은지 모으려는 사람이 많은지 살펴봐요.' },
-  { id: 'onchain', name: '온체인 데이터', isNew: true,
+  { id: 'onchain', name: '온체인 데이터', isNew: true, style: 'column',
     desc: '블록체인에 직접 기록되는 사용량·수수료·채굴·공급 데이터예요. 네트워크가 얼마나 활발하고 튼튼한지 보여줘요.' },
-  { id: 'market', name: '시장 지표',
+  { id: 'market', name: '시장 지표', style: 'line',
     desc: '가격과 가치평가 지표로 지금 시장이 과열인지 침체인지 가늠해요.' },
 ];
 
@@ -327,51 +360,51 @@ const METRICS = [
     needs: ['SplyExNtv', 'PriceUSD'], calc: (a, b) => a * b,
     short: '거래소 보유량을 달러로 바꾼 값',
     desc: '거래소 보유량 × 가격. 거래소에 쌓인 코인이 지금 시세로 얼마어치인지 보여줘요.' },
-  { key: 'FlowInExNtv', cat: 'flows', name: '거래소 입금량', fmt: 'coin',
+  { key: 'FlowInExNtv', cat: 'flows', name: '거래소 입금량', fmt: 'coin', agg: 'sum',
     short: '하루 동안 거래소로 들어온 코인 수',
     desc: '하루 동안 거래소 지갑으로 들어온 코인 수예요. 갑자기 크게 늘면 팔기 위해 옮기는 사람이 많다는 신호일 수 있어요.' },
-  { key: 'FlowInExUSD', cat: 'flows', name: '거래소 입금량 (USD)', fmt: 'usd',
+  { key: 'FlowInExUSD', cat: 'flows', name: '거래소 입금량 (USD)', fmt: 'usd', agg: 'sum',
     short: '하루 동안 거래소로 들어온 코인의 달러 가치',
     desc: '하루 동안 거래소 지갑으로 들어온 코인의 달러 가치예요.' },
-  { key: 'FlowOutExNtv', cat: 'flows', name: '거래소 출금량', fmt: 'coin',
+  { key: 'FlowOutExNtv', cat: 'flows', name: '거래소 출금량', fmt: 'coin', agg: 'sum',
     short: '하루 동안 거래소에서 빠져나간 코인 수',
     desc: '하루 동안 거래소에서 빠져나간 코인 수예요. 늘어나면 사서 개인 지갑에 보관하려는 사람이 많다는 뜻으로 봐요.' },
-  { key: 'FlowOutExUSD', cat: 'flows', name: '거래소 출금량 (USD)', fmt: 'usd',
+  { key: 'FlowOutExUSD', cat: 'flows', name: '거래소 출금량 (USD)', fmt: 'usd', agg: 'sum',
     short: '하루 동안 거래소에서 빠져나간 코인의 달러 가치',
     desc: '하루 동안 거래소에서 빠져나간 코인의 달러 가치예요.' },
-  { key: 'NetflowNtv', cat: 'flows', name: '거래소 순입출금량 (Netflow)', fmt: 'coin', kind: 'hist',
+  { key: 'NetflowNtv', cat: 'flows', name: '거래소 순입출금량 (Netflow)', fmt: 'coin', kind: 'hist', agg: 'sum',
     needs: ['FlowInExNtv', 'FlowOutExNtv'], calc: (a, b) => a - b,
     short: '입금량 − 출금량 (코인 수)',
     desc: '거래소 입금량 − 출금량이에요. 플러스(+)면 거래소에 코인이 쌓이는 중이라 매도 압력으로, 마이너스(−)면 빠져나가는 중이라 보유 성향으로 해석해요. 상태는 최근 7일 합계로 판단해요.' },
-  { key: 'NetflowUSD', cat: 'flows', name: '거래소 순입출금량 (USD)', fmt: 'usd', kind: 'hist',
+  { key: 'NetflowUSD', cat: 'flows', name: '거래소 순입출금량 (USD)', fmt: 'usd', kind: 'hist', agg: 'sum',
     needs: ['FlowInExUSD', 'FlowOutExUSD'], calc: (a, b) => a - b,
     short: '입금량 − 출금량 (달러)',
     desc: '거래소 입금 금액 − 출금 금액(달러)이에요. 해석은 순입출금량(코인 수)과 같아요.' },
 
   // ----- 온체인 데이터 (새 카테고리) -----
-  { key: 'AdrActCnt', cat: 'onchain', name: '활성 주소 수', fmt: 'num',
+  { key: 'AdrActCnt', cat: 'onchain', name: '활성 주소 수', fmt: 'num', agg: 'avg',
     short: '하루 동안 거래에 참여한 고유 주소 수',
     desc: '하루 동안 보내거나 받는 거래에 참여한 고유 주소 수예요. 사용자 활동의 크기를 대략 보여줘요. 상태는 최근 7일 평균을 90일 평균과 비교해요.' },
-  { key: 'TxCnt', cat: 'onchain', name: '거래 수', fmt: 'num',
+  { key: 'TxCnt', cat: 'onchain', name: '거래 수', fmt: 'num', agg: 'sum',
     short: '하루 동안 블록체인에 기록된 거래 개수',
     desc: '하루 동안 블록체인에 기록된 거래 개수예요.' },
-  { key: 'TxTfrCnt', cat: 'onchain', name: '전송 건수', fmt: 'num',
+  { key: 'TxTfrCnt', cat: 'onchain', name: '전송 건수', fmt: 'num', agg: 'sum',
     short: '하루 동안 코인이 실제로 옮겨진 횟수',
     desc: '하루 동안 코인이 실제로 다른 주소로 옮겨진 횟수예요. 거래 하나에 여러 전송이 들어 있을 수 있어서 거래 수보다 클 수 있어요.' },
   { key: 'AdrBalCnt', cat: 'onchain', name: '코인 보유 주소 수', fmt: 'num',
     short: '잔고가 0보다 많은 주소 수',
     desc: '잔고가 0보다 많은 주소 수예요. 꾸준히 늘면 보유자층이 넓어지고 있다는 뜻이에요.' },
-  { key: 'FeeTotNtv', cat: 'onchain', name: '수수료 합계', fmt: 'coin',
+  { key: 'FeeTotNtv', cat: 'onchain', name: '수수료 합계', fmt: 'coin', agg: 'sum',
     short: '하루 동안 낸 수수료 총량 (코인 수)',
     desc: '하루 동안 사용자들이 낸 수수료 총량(코인 수)이에요. 네트워크가 붐빌수록 올라가요.' },
-  { key: 'FeeTotUSD', cat: 'onchain', name: '수수료 합계 (USD)', fmt: 'usd',
+  { key: 'FeeTotUSD', cat: 'onchain', name: '수수료 합계 (USD)', fmt: 'usd', agg: 'sum',
     needs: ['FeeTotNtv', 'PriceUSD'], calc: (a, b) => a * b,
     short: '하루 동안 낸 수수료 총액 (달러)',
     desc: '수수료 합계 × 가격. 하루 동안 사용자들이 낸 수수료 총액(달러)이에요.' },
-  { key: 'HashRate', cat: 'onchain', name: '해시레이트', fmt: 'hash',
+  { key: 'HashRate', cat: 'onchain', name: '해시레이트', fmt: 'hash', agg: 'avg',
     short: '채굴기들이 쓰는 계산 능력의 합',
     desc: '채굴기들이 쓰는 계산 능력의 합이에요. 높을수록 네트워크가 안전하고, 채굴자들이 앞으로를 좋게 본다는 뜻으로 해석해요.' },
-  { key: 'IssTotUSD', cat: 'onchain', name: '신규 발행액', fmt: 'usd',
+  { key: 'IssTotUSD', cat: 'onchain', name: '신규 발행액', fmt: 'usd', agg: 'sum',
     short: '하루 동안 새로 만들어진 코인 가치',
     desc: '하루 동안 새로 만들어진 코인의 달러 가치예요. 채굴자나 검증자가 받는 보상이에요.' },
   { key: 'SplyCur', cat: 'onchain', name: '유통량', fmt: 'coin',
@@ -470,15 +503,19 @@ function toggleFav(key) {
   FAVS = FAVS.includes(key) ? FAVS.filter(k => k !== key) : [...FAVS, key];
   try { localStorage.setItem(FAV_KEY, JSON.stringify(FAVS)); } catch {}
 }
-function setValue(coinId, key, day, value) {
+// 값 여러 개를 한 번에 저장 (pairs: [['2026-10-11', 123], ...], 값이 ''면 지우기)
+function setValues(coinId, key, pairs) {
   const byCoin = (OV.values[coinId] ??= {});
   const byKey = (byCoin[key] ??= {});
-  if (value === '' || value == null || !isFinite(value)) delete byKey[day];
-  else byKey[day] = Number(value);
+  for (const [day, value] of pairs) {
+    if (value === '' || value == null || !isFinite(value)) delete byKey[day];
+    else byKey[day] = Number(value);
+  }
   if (!Object.keys(byKey).length) delete byCoin[key];
   if (!Object.keys(byCoin).length) delete OV.values[coinId];
   saveLocal();
 }
+const setValue = (coinId, key, day, value) => setValues(coinId, key, [[day, value]]);
 function setNote(coinId, key, text) {
   const byCoin = (OV.notes[coinId] ??= {});
   if (text.trim()) byCoin[key] = text; else delete byCoin[key];
@@ -515,6 +552,40 @@ function seriesMap(coinId, def) {
 }
 const toArr = map => [...map].sort((x, y) => (x[0] < y[0] ? -1 : 1)).map(([time, value]) => ({ time, value }));
 const series = (c, def) => toArr(seriesMap(c.id, def));
+
+/* 일 → 주/월 단위로 묶기 */
+function bucket(day, win) {
+  if (win === 'MONTH') return day.slice(0, 7) + '-01';
+  const d = new Date(day + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7);   // 그 주 월요일
+  return d.toISOString().slice(0, 10);
+}
+function aggregate(arr, win, how) {
+  if (win === 'DAY') return arr;
+  const groups = new Map();
+  for (const p of arr) {
+    const k = bucket(p.time, win);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(p.value);
+  }
+  return [...groups].map(([time, v]) => ({
+    time,
+    value: how === 'sum' ? v.reduce((a, b) => a + b, 0)
+         : how === 'avg' ? v.reduce((a, b) => a + b, 0) / v.length
+         : v[v.length - 1],
+  }));
+}
+/* 이동평균(SMA) · 지수이동평균(EMA) */
+function sma(arr, n) {
+  const out = []; let s = 0;
+  arr.forEach((p, i) => { s += p.value; if (i >= n) s -= arr[i - n].value; if (i >= n - 1) out.push({ time: p.time, value: s / n }); });
+  return out;
+}
+function ema(arr, n) {
+  const k = 2 / (n + 1), out = []; let e;
+  arr.forEach((p, i) => { e = i === 0 ? p.value : p.value * k + e * (1 - k); if (i >= n - 1) out.push({ time: p.time, value: e }); });
+  return out;
+}
 
 /* =====================================================================
    6) 숫자 보기 좋게 바꾸기
@@ -597,23 +668,29 @@ function sparkline(arr) {
 }
 
 /* =====================================================================
-   8) 주소(#) 읽기: #btc / #btc/flows / #btc/flows/NetflowUSD
+   8) 주소(#) 읽기
+   - #btc                               → 개요
+   - #btc/flows                         → 카테고리 표
+   - #btc/flows/SplyExNtv?window=DAY…   → 지표 차트 (? 뒤는 차트 설정)
    ===================================================================== */
 const $ = id => document.getElementById(id);
 function route() {
-  const [id, cat, key] = location.hash.slice(1).split('/');
+  const [path, query] = location.hash.slice(1).split('?');
+  const [id, cat, key] = path.split('/');
   const c = COINS.find(x => x.id === id) || COINS[0];
-  return { c, cat: CATS.find(x => x.id === cat) || (cat === 'favs' ? 'favs' : null), def: metricByKey(key) };
+  return { c, cat: CATS.find(x => x.id === cat) || (cat === 'favs' ? 'favs' : null), def: metricByKey(key),
+           path, opts: new URLSearchParams(query || '') };
 }
 const link = (c, cat, key) => '#' + [c.id, cat, key].filter(Boolean).join('/');
 const icon = c => MARKET[c.cg] && MARKET[c.cg].image ? `<img src="${MARKET[c.cg].image}" alt="">` : `<span class="coin-dot"></span>`;
 
-/* ----- 코인 탭 (코인을 바꿔도 보고 있던 지표는 그대로) ----- */
+/* ----- 코인 탭 (코인을 바꿔도 보고 있던 지표·차트 설정은 그대로) ----- */
 function drawTabs() {
   const { c } = route();
-  const rest = location.hash.slice(1).split('/').slice(1).join('/');
+  const hash = location.hash.slice(1);
+  const rest = hash.includes('/') ? hash.slice(hash.indexOf('/')) : hash.includes('?') ? hash.slice(hash.indexOf('?')) : '';
   $('coins').innerHTML = COINS.map(x =>
-    `<a href="#${x.id}${rest ? '/' + rest : ''}" class="${x === c ? 'on' : ''}">${icon(x)}${x.sym}</a>`).join('');
+    `<a href="#${x.id}${rest}" class="${x === c ? 'on' : ''}">${icon(x)}${x.sym}</a>`).join('');
 }
 
 /* ----- 왼쪽 메뉴 ----- */
@@ -650,7 +727,7 @@ function drawSide() {
   }).join('');
 
   // 화살표 부분을 누르면 펼치기/접기만
-  $('tree').querySelectorAll('.cat[data-cat] .arr').forEach(a => a.onclick = e => {
+  $('tree').querySelectorAll('.cat[data-cat] .arr').forEach(a => a.onclick = () => {
     const id = a.closest('.cat').dataset.cat;
     openCats.has(id) ? openCats.delete(id) : openCats.add(id);
     drawSide();
@@ -660,13 +737,13 @@ function drawSide() {
 /* =====================================================================
    9) 페이지 그리기
    ===================================================================== */
-let chart = null;
+let chart = null, lastPath = null;
 
 async function render() {
   drawTabs();
   drawSide();
   document.body.classList.remove('side-open');
-  const { c, cat, def } = route();
+  const { c, path } = route();
   if (!raw[c.id]) $('page').innerHTML = `<div class="loading">${c.name} 데이터 불러오는 중…</div>`;
   try { await fetchCoin(c); }
   catch (e) {
@@ -674,18 +751,24 @@ async function render() {
     return;
   }
   if (c !== route().c) return;   // 그사이 다른 코인을 눌렀으면 그리지 않기
+  const y = window.scrollY;
+  drawPage();
+  window.scrollTo(0, path === lastPath ? y : 0);   // 차트 설정만 바꿨으면 스크롤 위치 유지
+  lastPath = path;
+}
+function drawPage() {
+  const { c, cat, def } = route();
   if (chart) { chart.remove(); chart = null; }
   if (def) drawMetric(c, def);
   else if (cat) drawCategory(c, cat);
   else drawSummary(c);
-  window.scrollTo(0, 0);
 }
-const rerender = () => { const { c, cat, def } = route(); if (chart) { chart.remove(); chart = null; } def ? drawMetric(c, def) : cat ? drawCategory(c, cat) : drawSummary(c); drawSide(); };
+const rerender = () => { const y = window.scrollY; drawPage(); drawSide(); window.scrollTo(0, y); };
 
 function noDataNotice(c) {
   const has = METRICS.some(m => m.key !== 'PriceUSD' && series(c, m).length);
   return has ? '' : `<div class="notice">💡 <b>${c.name}</b>는 무료로 받을 수 있는 온체인 데이터가 없어서 가격만 자동으로 나와요.
-    오른쪽 위 <b>✎ 데이터 편집</b>을 켜고 지표를 눌러 날짜별 값을 직접 입력하면, 다른 코인처럼 표와 차트가 채워져요.</div>`;
+    오른쪽 위 <b>✎ 데이터 편집</b>을 켜고 지표를 누르면, 날짜별 값을 직접 입력하거나 한 번에 붙여넣을 수 있어요.</div>`;
 }
 
 /* ----- 개요 페이지 ----- */
@@ -778,101 +861,211 @@ function drawCategory(c, cat) {
   });
 }
 
-/* ----- 지표 차트 페이지 ----- */
-let days = 365, showPrice = true, logScale = false;
+/* =====================================================================
+   10) 지표 차트 페이지
+   - 차트 설정은 주소 ? 뒤에 저장돼요 (window, sma, ema, priceScale, metricScale, chartStyle, range)
+   ===================================================================== */
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const OPTS = {
+  window:      [['DAY', '1일'], ['WEEK', '1주'], ['MONTH', '1달']],
+  sma:         [['0', '선택안함'], ['7', '7'], ['14', '14'], ['30', '30'], ['50', '50'], ['100', '100'], ['200', '200']],
+  ema:         [['0', '선택안함'], ['7', '7'], ['14', '14'], ['30', '30'], ['50', '50'], ['100', '100'], ['200', '200']],
+  metricScale: [['linear', '선형'], ['log', '로그']],
+  priceScale:  [['linear', '선형'], ['log', '로그'], ['none', '숨기기']],
+  chartStyle:  [['column', '바'], ['line', '선'], ['area', '영역']],
+};
+const RANGES = [['1w', '1주'], ['1m', '1월'], ['3m', '3월'], ['1y', '1년'], ['ytd', 'YTD'], ['all', 'All']];
+
+function chartSettings(def, opts) {
+  const cat = CATS.find(k => k.id === def.cat);
+  const pick = (k, d) => { const v = opts.get(k); return OPTS[k].some(o => o[0] === v) ? v : d; };
+  return {
+    window: pick('window', 'DAY'), sma: pick('sma', '0'), ema: pick('ema', '0'),
+    metricScale: pick('metricScale', 'linear'), priceScale: pick('priceScale', 'linear'),
+    chartStyle: pick('chartStyle', cat.style),
+    range: RANGES.some(r => r[0] === opts.get('range')) ? opts.get('range') : 'all',
+  };
+}
+// 설정 하나를 바꾸면 주소를 바꾸고 → 화면이 다시 그려져요
+function setSetting(k, v) {
+  const { path, opts } = route();
+  opts.set(k, v);
+  location.hash = path + '?' + opts.toString();
+}
+function rangeStart(lastDay, range) {
+  if (range === 'all' || !lastDay) return '';
+  if (range === 'ytd') return lastDay.slice(0, 4) + '-01-01';
+  const d = new Date(lastDay + 'T00:00:00Z');
+  const back = { '1w': 7, '1m': 30, '3m': 91, '1y': 365 }[range];
+  d.setUTCDate(d.getUTCDate() - back);
+  return d.toISOString().slice(0, 10);
+}
 
 function drawMetric(c, def) {
+  const { opts } = route();
+  const S = chartSettings(def, opts);
   const cat = CATS.find(k => k.id === def.cat);
-  const arr = series(c, def);
-  const st = status(def, arr), ch = chg24(arr);
+  const daily = series(c, def);
+  const st = status(def, daily);
+  const sel = (k, label) => `
+    <label class="ctl"><small>${label}</small>
+      <select data-set="${k}">${OPTS[k].map(([v, t]) => `<option value="${v}" ${S[k] === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    </label>`;
+  const title = def.name + (def.cat === 'flows' ? ' - 전체 거래소' : '');
+
   $('page').innerHTML = `
-    <div class="crumb"><a href="${link(c)}">${c.name}</a> › <a href="${link(c, cat.id)}">${cat.name}</a></div>
-    <div class="mhead">
-      <h2>${def.name}</h2>
-      <button class="starbtn ${FAVS.includes(def.key) ? 'on' : ''}" id="favBtn" title="즐겨찾기">★</button>
-      ${arr.length ? `<span class="pill s-${st.c}">${st.t}</span>` : ''}
-    </div>
-    <p class="lead" style="margin-bottom:0">${def.desc}</p>
-    <div class="mstats">
-      <div><small>최신 값</small><b class="num">${fmt(lastOf(arr), def, c)}</b></div>
-      <div><small>24H (%)</small><b class="num ${pctCls(ch)}">${pctTxt(ch)}</b></div>
-      <div><small>기준일 (UTC)</small><b class="num">${arr.length ? arr[arr.length - 1].time : '–'}</b></div>
-    </div>
-    <div class="toolbar">
-      <div class="seg" id="range">
-        ${[[90, '3개월'], [365, '1년'], [1095, '3년'], [0, '전체']].map(([d, t]) =>
-          `<button data-days="${d}" class="${d === days ? 'on' : ''}">${t}</button>`).join('')}
+    <div class="crumb"><a href="${link(c)}">${c.name}</a> › <a href="${link(c, cat.id)}">${cat.name}</a> › ${def.name}</div>
+    <div class="ccard" id="ccard">
+      <div class="chead">
+        <b>${title}</b>
+        <div class="cicons">
+          <button class="starbtn ${FAVS.includes(def.key) ? 'on' : ''}" id="favBtn" title="즐겨찾기">★</button>
+          <button class="iconbtn" id="shotBtn" title="차트를 이미지로 저장">📷</button>
+          <button class="iconbtn" id="fullBtn" title="전체 화면">⛶</button>
+        </div>
       </div>
-      <label class="chk"><input type="checkbox" id="showPrice" ${showPrice ? 'checked' : ''}> 가격 겹쳐 보기</label>
-      <label class="chk"><input type="checkbox" id="logScale" ${logScale ? 'checked' : ''}> 로그 스케일</label>
+      <div class="cbody">
+        <div class="controls">
+          ${def.cat === 'flows' ? `<label class="ctl"><small>거래소</small><select><option>전체 거래소</option></select></label>` : ''}
+          ${sel('window', '단위')}
+          ${sel('sma', '이평')}
+          ${sel('ema', '지수이평')}
+          ${sel('metricScale', '눈금(지표)')}
+          ${sel('priceScale', '가격')}
+          ${sel('chartStyle', '차트 스타일')}
+        </div>
+        <div class="rangebar">
+          <div class="range">${RANGES.map(([v, t]) => `<button data-range="${v}" class="${S.range === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+          <div class="mval">
+            ${daily.length ? `최신 <b class="num">${fmt(lastOf(daily), def, c)}</b>
+              <span class="num ${pctCls(chg24(daily))}" style="margin-left:6px">${pctTxt(chg24(daily))}</span>
+              <span class="pill s-${st.c}" style="margin-left:8px">${st.t}</span>` : ''}
+          </div>
+        </div>
+        <div class="legend" id="legend"></div>
+        <div class="chartbox"><div id="chart"></div><div id="chartMsg"></div></div>
+      </div>
     </div>
-    <div class="chartbox"><div id="chart"></div><div id="chartMsg"></div></div>
-    <div class="legend">
-      <span><i style="background:var(--brand)"></i>${def.name}</span>
-      <span id="lgPrice"><i style="background:var(--price)"></i>가격 (USD)</span>
-      <span id="lgEdit"><i style="background:var(--down);height:8px;width:8px;border-radius:50%"></i>직접 수정한 날짜</span>
+    <div class="about">
+      <h3>이 지표는?</h3>
+      <p>${def.desc}</p>
     </div>
     <div id="editArea"></div>`;
 
   $('favBtn').onclick = () => { toggleFav(def.key); $('favBtn').classList.toggle('on'); drawSide(); };
-  $('range').onclick = e => { if (e.target.dataset.days) { days = Number(e.target.dataset.days); rerender(); } };
-  $('showPrice').onchange = e => { showPrice = e.target.checked; rerender(); };
-  $('logScale').onchange = e => { logScale = e.target.checked; rerender(); };
+  $('fullBtn').onclick = () => document.fullscreenElement ? document.exitFullscreen() : $('ccard').requestFullscreen();
+  $('shotBtn').onclick = () => {
+    if (!chart) return;
+    const a = document.createElement('a');
+    a.href = chart.takeScreenshot().toDataURL('image/png');
+    a.download = `${c.sym}-${def.key}.png`;
+    a.click();
+  };
+  document.querySelectorAll('select[data-set]').forEach(s => s.onchange = () => setSetting(s.dataset.set, s.value));
+  document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => setSetting('range', b.dataset.range));
 
-  drawChart(c, def, arr);
+  drawChart(c, def, daily, S);
   drawEditArea(c, def);
 }
 
-function drawChart(c, def, all) {
+function drawChart(c, def, daily, S) {
   chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
-    layout: { background: { color: 'transparent' }, textColor: cssVar('--muted'), fontSize: 12 },
-    grid: { vertLines: { color: cssVar('--line') }, horzLines: { color: cssVar('--line') } },
-    rightPriceScale: { borderColor: cssVar('--line') },
-    leftPriceScale: { borderColor: cssVar('--line') },
+    layout: { background: { color: 'transparent' }, textColor: cssVar('--muted'), fontSize: 11 },
+    grid: { vertLines: { visible: false }, horzLines: { color: cssVar('--line') } },
+    leftPriceScale: { visible: true, borderVisible: false },
+    rightPriceScale: { borderVisible: false },
     timeScale: { borderColor: cssVar('--line') },
+    crosshair: { mode: 0 },
   });
-  const data = days ? all.slice(-days) : all;
-  const pf = f => ({ type: 'custom', formatter: f, minMove: 1e-10 });
+  const pf = f => ({ type: 'custom', formatter: f, minMove: 1e-12 });
+  const mf = pf(v => fmt(v, def, c));
+
+  // 1) 일 → 주/월로 묶고, 이평은 전체 기간으로 계산한 뒤 보이는 기간만 잘라요
+  const full = aggregate(daily, S.window, def.agg);
+  const from = rangeStart(full.length ? full[full.length - 1].time : '', S.range);
+  const cut = a => from ? a.filter(p => p.time >= from) : a;
+  const data = cut(full);
+
+  // 2) 지표 (왼쪽 눈금)
   let main;
-  if (def.kind === 'hist') {
-    main = chart.addHistogramSeries({ priceScaleId: 'right', priceFormat: pf(v => fmt(v, def, c)) });
-    main.setData(data.map(p => ({ ...p, color: p.value >= 0 ? cssVar('--down') : cssVar('--up') })));
+  if (S.chartStyle === 'column') {
+    main = chart.addHistogramSeries({ priceScaleId: 'left', priceFormat: mf, base: 0 });
+    main.setData(data.map(p => ({ ...p,
+      color: def.kind === 'hist' ? (p.value >= 0 ? cssVar('--down') : cssVar('--up')) : cssVar('--bar') })));
+  } else if (S.chartStyle === 'area') {
+    main = chart.addAreaSeries({ priceScaleId: 'left', priceFormat: mf, lineColor: cssVar('--bar'), lineWidth: 2,
+                                 topColor: 'rgba(19,162,107,.28)', bottomColor: 'rgba(19,162,107,0)' });
+    main.setData(data);
   } else {
-    main = chart.addAreaSeries({
-      priceScaleId: 'right', lineColor: cssVar('--brand'), lineWidth: 2,
-      topColor: 'rgba(90,72,224,.22)', bottomColor: 'rgba(90,72,224,0)', priceFormat: pf(v => fmt(v, def, c)),
-    });
+    main = chart.addLineSeries({ priceScaleId: 'left', priceFormat: mf, color: cssVar('--bar'), lineWidth: 2 });
     main.setData(data);
   }
-  // 직접 고친 날짜에 빨간 점 찍기
-  const from = data.length ? data[0].time : '';
-  const marks = editedDays(c.id, def).filter(d => d >= from)
-    .map(time => ({ time, position: 'inBar', color: cssVar('--down'), shape: 'circle' }));
-  main.setMarkers(marks);
-  $('lgEdit').style.display = marks.length ? '' : 'none';
-
-  const withPrice = showPrice && def.key !== 'PriceUSD';
-  if (withPrice) {
-    const p = chart.addLineSeries({ priceScaleId: 'left', color: cssVar('--price'), lineWidth: 1.5,
-                                    priceFormat: pf(v => fmt(v, { fmt: 'usd' }, c)) });
-    p.setData(toArr(baseMap(c.id, 'PriceUSD')).filter(x => !from || x.time >= from));
+  // 원본 값을 고친 날짜에만 점 찍기 (일 단위일 때만, 새로 입력한 날짜는 제외)
+  if (S.window === 'DAY') {
+    const orig = (def.needs || [def.key]).map(k => (raw[c.id] && raw[c.id][k]) || new Map());
+    main.setMarkers(editedDays(c.id, def).filter(d => (!from || d >= from) && orig.some(m => m.has(d)))
+      .map(time => ({ time, position: 'aboveBar', color: cssVar('--brand'), shape: 'circle', size: 0.6 })));
   }
-  const mode = logScale && def.kind !== 'hist' ? 1 : 0;
-  chart.applyOptions({ leftPriceScale: { visible: withPrice, mode }, rightPriceScale: { mode } });
-  $('lgPrice').style.display = withPrice ? '' : 'none';
+
+  // 3) 이동평균선
+  const legend = [];
+  if (S.sma !== '0') {
+    chart.addLineSeries({ priceScaleId: 'left', priceFormat: mf, color: cssVar('--sma'), lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false })
+      .setData(cut(sma(full, +S.sma)));
+    legend.push(`<span><i class="lg-line" style="background:var(--sma)"></i>SMA ${S.sma}</span>`);
+  }
+  if (S.ema !== '0') {
+    chart.addLineSeries({ priceScaleId: 'left', priceFormat: mf, color: cssVar('--ema'), lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false })
+      .setData(cut(ema(full, +S.ema)));
+    legend.push(`<span><i class="lg-line" style="background:var(--ema)"></i>EMA ${S.ema}</span>`);
+  }
+
+  // 4) 가격 (오른쪽 눈금, 검정 선)
+  const withPrice = S.priceScale !== 'none' && def.key !== 'PriceUSD';
+  if (withPrice) {
+    // 지표 데이터가 있는 기간에만 가격선 그리기
+    const first = data.length ? data[0].time : '';
+    const price = cut(aggregate(toArr(baseMap(c.id, 'PriceUSD')), S.window)).filter(p => !first || p.time >= first);
+    chart.addLineSeries({ priceScaleId: 'right', color: cssVar('--priceline'), lineWidth: 1.2,
+                          priceFormat: pf(v => fmt(v, { fmt: 'usd' }, c)) }).setData(price);
+  }
+  chart.applyOptions({
+    leftPriceScale: { mode: S.metricScale === 'log' ? 1 : 0 },
+    rightPriceScale: { visible: withPrice, mode: S.priceScale === 'log' ? 1 : 0 },
+  });
   chart.timeScale().fitContent();
+
+  $('legend').innerHTML = [
+    withPrice ? `<span><i class="lg-line" style="background:var(--priceline)"></i>가격(USD)</span>` : '',
+    `<span><i class="lg-dot" style="background:var(--bar)"></i>${def.name}</span>`,
+    ...legend,
+  ].join('');
 
   $('chartMsg').innerHTML = data.length ? '' : def.calc
     ? `아직 데이터가 없어요.<br>이 지표는 ${def.needs.map(k => metricByKey(k).name).join(', ')}로 계산돼요. 그 지표에 값을 입력해 보세요.`
-    : `아직 데이터가 없어요.<br>오른쪽 위 <b>✎ 데이터 편집</b>을 켜면 아래에서 날짜별 값을 직접 입력할 수 있어요.`;
+    : `아직 데이터가 없어요.<br>오른쪽 위 <b>✎ 데이터 편집</b>을 켜면 아래에서 날짜별 값을 직접 입력하거나 한 번에 붙여넣을 수 있어요.`;
 }
 
 /* ----- 편집 영역 ----- */
+// "2026-10-01, 87461300000000" 같은 줄들을 [날짜, 값] 목록으로 바꾸기
+function parseBulk(text) {
+  const out = [], bad = [];
+  for (const line of text.split(/\r?\n/)) {
+    const s = line.trim();
+    if (!s) continue;
+    const m = s.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})\S*[\s,;\t]+"?(-?[\d,.]+(?:e[+-]?\d+)?)"?/i);
+    if (!m) { bad.push(s); continue; }
+    const day = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    const v = parseFloat(m[4].replace(/,/g, ''));
+    if (isFinite(v)) out.push([day, v]); else bad.push(s);
+  }
+  return { out, bad };
+}
+
 function drawEditArea(c, def) {
   const box = $('editArea');
-  let html = `<h4>✎ 이 지표 수정하기</h4>`;
+  let html = `<h4>✎ 이 지표 수정하기 · ${c.name}</h4>`;
   if (def.calc) {
     html += `<p class="hint">이 지표는 자동으로 계산돼요. 아래 재료 지표를 고치면 함께 바뀌어요:
       ${def.needs.map(k => { const m = metricByKey(k); return `<a href="${link(c, m.cat, m.key)}">${m.name}</a>`; }).join(', ')}</p>`;
@@ -889,7 +1082,20 @@ function drawEditArea(c, def) {
         <input type="number" step="any" id="addVal" placeholder="값 (${rawUnit(def, c)})">
         <button class="btn primary" id="addBtn">이 날짜에 저장</button>
       </div>
-      ${rows.length ? `<div class="tablewrap"><table class="etbl">
+
+      <h5>여러 날짜 한 번에 붙여넣기</h5>
+      <p class="hint">엑셀이나 CSV 파일에서 <b>날짜</b>와 <b>값</b> 두 칸을 복사해서 붙여넣으세요. 한 줄에 하루씩이에요.<br>
+        예) <code>2026-10-01, 87461300000000</code> &nbsp;또는 엑셀에서 복사한 그대로 (탭으로 구분)</p>
+      <textarea id="bulk" placeholder="2026-10-01, 87461300000000&#10;2026-10-02, 87470000000000&#10;2026-10-03, 87455000000000"></textarea>
+      <div class="addrow" style="margin-top:8px">
+        <button class="btn primary" id="bulkBtn">붙여넣은 값 저장</button>
+        <button class="btn" id="csvBtn">CSV 파일에서 읽기</button>
+        <input type="file" id="csvFile" accept=".csv,.txt,text/csv,text/plain" hidden>
+        <span class="hint" id="bulkMsg" style="margin:0;align-self:center"></span>
+      </div>
+
+      ${rows.length ? `<h5>최근 값 하나씩 고치기</h5>
+      <div class="tablewrap"><table class="etbl">
         <thead><tr><th>날짜</th><th>원본 값</th><th>내가 고친 값</th><th></th></tr></thead>
         <tbody>${rows.map(d => `
           <tr class="${d in mine ? 'changed' : ''}">
@@ -898,29 +1104,43 @@ function drawEditArea(c, def) {
             <td><input type="number" step="any" data-day="${d}" value="${d in mine ? mine[d] : ''}" placeholder="${orig.has(d) ? orig.get(d) : ''}"></td>
             <td>${d in mine ? `<button class="btn" data-undo="${d}">되돌리기</button>` : ''}</td>
           </tr>`).join('')}
-        </tbody></table></div>` : ''}`;
+        </tbody></table></div>
+      ${Object.keys(mine).length ? `<div class="addrow" style="margin-top:10px"><button class="btn" id="clearAll">이 지표에서 고친 값 모두 지우기</button></div>` : ''}` : ''}`;
   }
-  html += `<p class="hint" style="margin-top:14px">표에 보일 메모</p>
+  html += `<h5>표에 보일 메모</h5>
     <textarea id="memo" placeholder="예: 10월 둘째 주 대규모 출금 — 기관 매수 추정"></textarea>`;
   box.innerHTML = html;
   $('memo').value = noteOf(c.id, def.key);
-
-  if (!def.calc) {
-    $('addBtn').onclick = () => {
-      const d = $('addDay').value, v = $('addVal').value;
-      if (!d || v === '') return alert('날짜와 값을 모두 넣어 주세요.');
-      setValue(c.id, def.key, d, parseFloat(v)); rerender();
-    };
-    box.querySelectorAll('input[data-day]').forEach(inp => inp.onchange = () => {
-      setValue(c.id, def.key, inp.dataset.day, inp.value === '' ? '' : parseFloat(inp.value)); rerender();
-    });
-    box.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => { setValue(c.id, def.key, b.dataset.undo, ''); rerender(); });
-  }
   $('memo').onchange = () => setNote(c.id, def.key, $('memo').value);
+  if (def.calc) return;
+
+  $('addBtn').onclick = () => {
+    const d = $('addDay').value, v = $('addVal').value;
+    if (!d || v === '') return alert('날짜와 값을 모두 넣어 주세요.');
+    setValue(c.id, def.key, d, parseFloat(v)); rerender();
+  };
+  const saveBulk = text => {
+    const { out, bad } = parseBulk(text);
+    if (!out.length) { $('bulkMsg').textContent = '읽을 수 있는 줄이 없어요. "날짜, 값" 형식인지 확인해 주세요.'; return; }
+    setValues(c.id, def.key, out);
+    rerender();
+    $('bulkMsg').textContent = `${out.length}개 저장했어요` + (bad.length ? ` · 못 읽은 줄 ${bad.length}개 (예: ${bad[0].slice(0, 40)})` : '');
+  };
+  $('bulkBtn').onclick = () => saveBulk($('bulk').value);
+  $('csvBtn').onclick = () => $('csvFile').click();
+  $('csvFile').onchange = async () => { const f = $('csvFile').files[0]; if (f) saveBulk(await f.text()); };
+  box.querySelectorAll('input[data-day]').forEach(inp => inp.onchange = () => {
+    setValue(c.id, def.key, inp.dataset.day, inp.value === '' ? '' : parseFloat(inp.value)); rerender();
+  });
+  box.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => { setValue(c.id, def.key, b.dataset.undo, ''); rerender(); });
+  if ($('clearAll')) $('clearAll').onclick = () => {
+    if (!confirm(`${c.name} · ${def.name}에서 고친 값을 모두 지울까요?`)) return;
+    setValues(c.id, def.key, Object.keys(editsOf(c.id, def.key)).map(d => [d, ''])); rerender();
+  };
 }
 
 /* =====================================================================
-   10) 버튼 연결
+   11) 버튼 연결
    ===================================================================== */
 $('editToggle').onclick = () => {
   const on = document.body.classList.toggle('editing');
