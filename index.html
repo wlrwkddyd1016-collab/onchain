@@ -418,15 +418,16 @@ const COINS = [
   { id: 'xrp',  cg: 'ripple',       name: '리플',         sym: 'XRP',  m: [...COMMON, 'FeeTotNtv'] },
   { id: 'usdt', cg: 'tether',       name: '테더',         sym: 'USDT', m: [...COMMON] },
   { id: 'usdc', cg: 'usd-coin',     name: 'USD 코인',     sym: 'USDC', m: [...COMMON, 'IssTotUSD'] },
-  { id: 'shib', cg: 'shiba-inu',    name: '시바이누',     sym: 'SHIB', m: ['PriceUSD'] },
+  { id: 'shib', cg: 'shiba-inu',    name: '시바이누',     sym: 'SHIB', m: ['PriceUSD'], qty: 1e7 },
   { id: 'doge', cg: 'dogecoin',     name: '도지코인',     sym: 'DOGE', m: [...COMMON, 'FeeTotNtv', 'HashRate', 'IssTotUSD'] },
   { id: 'ada',  cg: 'cardano',      name: '에이다',       sym: 'ADA',  m: [...COMMON, 'FeeTotNtv', 'IssTotUSD'] },
   { id: 'link', cg: 'chainlink',    name: '체인링크',     sym: 'LINK', m: [...COMMON, 'IssTotUSD'] },
   { id: 'ltc',  cg: 'litecoin',     name: '라이트코인',   sym: 'LTC',  m: [...COMMON, 'FeeTotNtv', 'HashRate', 'IssTotUSD'] },
+  // qty: 직접 입력하는 코인 수량 지표는 '1 = 1,000만 개'로 넣고 봐요 (차트 눈금·입력칸은 1,000만 개 단위, 말풍선·표는 실제 개수)
   { id: 'bch',  cg: 'bitcoin-cash', name: '비트코인캐시', sym: 'BCH',  m: [...COMMON, 'FeeTotNtv', 'HashRate', 'IssTotUSD'] },
   // 니어·웜홀도 무료 온체인 데이터가 없어서 가격만 받아요. 로고는 직접 넣은 그림을 써요 (아래 LOGOS)
-  { id: 'near', cg: 'near',         name: '니어프로토콜', sym: 'NEAR', m: ['PriceUSD'], logo: 'near' },
-  { id: 'w',    cg: 'wormhole',     name: '웜홀',         sym: 'W',    m: ['PriceUSD'], logo: 'w' },
+  { id: 'near', cg: 'near',         name: '니어프로토콜', sym: 'NEAR', m: ['PriceUSD'], logo: 'near', qty: 1e7 },
+  { id: 'w',    cg: 'wormhole',     name: '웜홀',         sym: 'W',    m: ['PriceUSD'], logo: 'w', qty: 1e7 },
 ];
 
 // 직접 넣은 코인 로고 (그림 파일을 글자로 바꿔서 이 파일 안에 담아 뒀어요)
@@ -641,9 +642,12 @@ function updateEditCount() {
 /* =====================================================================
    5) 지표 데이터 만들기 (원본 + 내가 고친 값 합치기)
    ===================================================================== */
+// 수량 배율: qty가 있는 코인의 '코인 개수' 지표만 (예: 시바이누 거래소 보유량 1 → 10,000,000개)
+const qtyOf = (c, key) => { const m = metricByKey(key); return c && c.qty && m && m.fmt === 'coin' ? c.qty : 1; };
 function baseMap(coinId, key) {
   const m = new Map((raw[coinId] && raw[coinId][key]) || []);
-  for (const [day, v] of Object.entries(editsOf(coinId, key))) m.set(day, v);
+  const q = qtyOf(COINS.find(x => x.id === coinId), key);   // 입력한 값 × 배율 = 실제 개수
+  for (const [day, v] of Object.entries(editsOf(coinId, key))) m.set(day, v * q);
   return m;
 }
 function seriesMap(coinId, def) {
@@ -722,7 +726,7 @@ function fmt(v, def, c) {
 const fullUsd = v => v == null ? '–' : '$' + (v >= 1 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : Number(v.toPrecision(4)));
 const pctTxt = v => v == null || !isFinite(v) ? '–' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
 const pctCls = v => v == null || !isFinite(v) ? '' : v >= 0 ? 'up' : 'dn';
-const rawUnit = (def, c) => ({ usd: 'USD', ratio: '배', pct: '%', hash: 'TH/s', coin: c.sym })[def.fmt] || '개';
+const rawUnit = (def, c) => qtyOf(c, def.key) > 1 ? `1,000만 ${c.sym}` : ({ usd: 'USD', ratio: '배', pct: '%', hash: 'TH/s', coin: c.sym })[def.fmt] || '개';
 const avg = a => a.reduce((s, x) => s + x.value, 0) / (a.length || 1);
 const lastOf = a => a.length ? a[a.length - 1].value : null;
 const chg24 = a => a.length > 1 && a[a.length - 2].value ? (lastOf(a) - a[a.length - 2].value) / Math.abs(a[a.length - 2].value) * 100 : null;
@@ -1095,7 +1099,7 @@ function drawMetric(c, def) {
             ${sel('scale', '눈금(스케일)')}
             ${sel('chartStyle', '차트 스타일')}
             ${S.chartStyle === 'candle' ? `<label class="ctl"><small>눈금 최대</small>
-              <input id="ymax" class="ymax" placeholder="자동 (예: 90T)" value="${(opts.get('ymax') || '').replace(/[^\w.]/g, '')}"></label>` : ''}
+              <input id="ymax" class="ymax" placeholder="${qtyOf(c, def.key) > 1 ? '자동 (예: 30)' : '자동 (예: 90T)'}" value="${(opts.get('ymax') || '').replace(/[^\w.]/g, '')}"></label>` : ''}
           </div>
           <div class="rangewrap">
             <div class="range">${RANGES.map(([v, t]) => `<button data-range="${v}" class="${S.range === v ? 'on' : ''}">${t}</button>`).join('')}<button id="calBtn" class="cal" title="날짜로 기간 고르기">${ICONS.calendar}</button></div>
@@ -1194,7 +1198,10 @@ function drawChart(c, def, daily, S) {
   const compact = a => a >= 1e12 ? +(a / 1e12).toFixed(1) + 'T' : a >= 1e9 ? +(a / 1e9).toFixed(1) + 'B'
                      : a >= 1e6 ? +(a / 1e6).toFixed(1) + 'M' : a >= 1e3 ? +(a / 1e3).toFixed(1) + 'K'
                      : String(Number(a.toPrecision(3)));
-  const axis = v => def.fmt === 'hash' ? hash(v) : def.fmt === 'ratio' ? v.toFixed(2)
+  const Q = qtyOf(c, def.needs ? def.needs[0] : def.key) > 1 && def.fmt === 'coin' ? c.qty : 1;   // 눈금 1 = 1,000만 개
+  // 눈금: 실제 개수를 M(백만)으로 (예: 1칸 = 1,000만 개 = 10M, 21.5칸 = 215M)
+  const axis = v => Q > 1 ? (Math.abs(v) < 1 ? '0' : Number((v / 1e6).toPrecision(4)) + 'M')
+                  : def.fmt === 'hash' ? hash(v) : def.fmt === 'ratio' ? v.toFixed(2)
                   : def.fmt === 'pct' ? v.toFixed(1) + '%'
                   : (v < 0 ? '-' : '') + (def.fmt === 'usd' ? '$' : '') + compact(Math.abs(v));
   const pf = f => ({ type: 'custom', formatter: f, minMove: 1e-12 });
@@ -1266,7 +1273,7 @@ function drawChart(c, def, daily, S) {
     if (r && r.priceRange) { lo = Math.min(0, r.priceRange.minValue); hi = r.priceRange.maxValue; }
     if (hi <= lo) hi = lo + 100;
     const room = candle ? 1.3 : 1;
-    lastRange = { minValue: lo < 0 ? lo * room : 0, maxValue: candle && ymax ? ymax : hi * room };
+    lastRange = { minValue: lo < 0 ? lo * room : 0, maxValue: candle && ymax ? ymax * Q : hi * room };
     return { priceRange: lastRange };
   };
 
@@ -1331,7 +1338,7 @@ function drawChart(c, def, daily, S) {
 
   $('legend').innerHTML = [
     withPrice ? `<span><i class="lg-line" style="background:var(--priceline)"></i>가격(USD)</span>` : '',
-    `<span><i class="lg-dot" style="background:var(--bar)"></i>${def.name}</span>`,
+    `<span><i class="lg-dot" style="background:var(--bar)"></i>${def.name}${Q > 1 ? ` <small style="color:var(--muted)">(M = 100만 개)</small>` : ""}</span>`,
     ...legend,
   ].join('');
 
@@ -1366,7 +1373,7 @@ function drawChart(c, def, daily, S) {
       let v = mainSeries.coordinateToPrice(Math.max(0, Math.min(locate(e).y, locate(e).h)));
       if (v == null || !isFinite(v)) return;
       if (def.kind !== 'hist') v = Math.max(0, v);
-      v = Number(v.toPrecision(6));
+      v = Q > 1 ? Math.round(v) : Number(v.toPrecision(6));   // 1,000만 개 단위 코인은 1개 단위까지 정확하게
       const p = chartData[drag];
       p.value = v;
       p.ph = false;
@@ -1378,7 +1385,7 @@ function drawChart(c, def, daily, S) {
       const p = chartData[drag];
       drag = null; frozen = null;
       if (p.ph || p.value == null) return;
-      setValue(c.id, def.key, p.time, p.value);
+      setValue(c.id, def.key, p.time, p.value / Q);   // 저장은 눈금 단위(1 = 1,000만 개)로
       mainSeries.setData(colored());          // 눈금 다시 맞추기
       $('chartMsg').innerHTML = '';
       hint.innerHTML = `✓ <b>${p.time}</b> 값을 <b>${fmt(p.value, def, c)}</b>(으)로 저장했어요. 되돌리려면 오른쪽 위 <b>✎ 데이터 편집</b>을 켜고 아래 표에서 지우세요.`;
@@ -1439,8 +1446,10 @@ function drawChart(c, def, daily, S) {
     if (!p) { tip.hidden = true; return; }
     const [y, m, d] = p.time.split('-');
     let rows = `<div class="tt">${y} ${m} ${d}, UTC</div>`;
-    const unit = def.fmt === 'coin' ? '' : def.fmt === 'usd' ? '$' : '';
-    rows += `<div><i style="background:var(--bar)"></i>${def.name} <b>${p.value == null || p.ph ? '값 없음' : unit + full2(p.value)}</b></div>`;
+    const unit = def.fmt === 'usd' ? '$' : '';
+    // 숫자만 (코인 이름 없이). 1,000만 개 단위 코인은 1의 자리까지 정수로
+    const num = Q > 1 ? Math.round(p.value).toLocaleString('en-US') : full2(p.value);
+    rows += `<div><i style="background:var(--bar)"></i>${def.name} <b>${p.value == null || p.ph ? '값 없음' : unit + num}</b></div>`;
     if (priceSeries) {
       const pd = param.seriesData.get(priceSeries);
       if (pd && pd.value != null) rows += `<div><i style="background:var(--priceline)"></i>가격(USD) <b>$${full2(pd.value)}</b></div>`;
