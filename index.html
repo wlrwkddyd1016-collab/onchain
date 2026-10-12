@@ -1029,8 +1029,8 @@ function drawChart(c, def, daily, S) {
     timeScale: {
       borderColor: cssVar('--line'), rightOffset: 1, barSpacing: 14, minBarSpacing: 0.3,
       tickMarkFormatter: (t, type) => {
-        const [y, m, d] = dayOf(t).split('-');
-        return type === 0 ? y : type === 1 ? `${y} ${m}` : `${m} ${d}`;
+        const [, m, d] = dayOf(t).split('-');
+        return `${m} ${d}`;   // 항상 '월 일'만 (예: 10 01)
       },
     },
     localization: { timeFormatter: t => dayOf(t) },
@@ -1133,7 +1133,7 @@ function drawChart(c, def, daily, S) {
   // 6) 안내 문구
   const hint = $('dragHint');
   if (candle) {
-    hint.hidden = false;
+    hint.hidden = true;   // 안내 문구는 화면에 보이지 않게
     hint.innerHTML = def.calc
       ? `이 지표는 자동 계산이라 끌어서 고칠 수 없어요. 재료 지표(${def.needs.map(k => metricByKey(k).name).join(', ')})에서 고쳐 주세요.`
       : S.window !== 'DAY'
