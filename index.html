@@ -3,92 +3,167 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>체인렌즈 · 비트코인 온체인 지표</title>
+<title>체인렌즈 · 코인별 온체인 요약</title>
 
 <!-- 차트 그리는 도구 (TradingView에서 무료로 공개한 라이브러리) -->
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
-  /* ===== 색상표: 여기 숫자만 바꾸면 사이트 전체 색이 바뀌어요 ===== */
+  /* ===== 색상표: 여기 값만 바꾸면 사이트 전체 색이 바뀌어요 ===== */
   :root {
-    --bg: #0d1117;        /* 배경 */
-    --panel: #161b22;     /* 카드/메뉴 배경 */
-    --line: #262d38;      /* 테두리 */
-    --text: #e6edf3;      /* 글자 */
-    --muted: #8b949e;     /* 흐린 글자 */
-    --accent: #3fb68b;    /* 강조색 (초록) */
-    --price: #f2a93b;     /* 가격선 (주황) */
-    --down: #f0616d;      /* 하락 (빨강) */
+    --bg: #0d1117;      /* 배경 */
+    --panel: #161b22;   /* 카드 배경 */
+    --panel2: #1c232c;  /* 카드에 마우스 올렸을 때 */
+    --line: #262d38;    /* 테두리 */
+    --text: #e6edf3;    /* 글자 */
+    --muted: #8b949e;   /* 흐린 글자 */
+    --accent: #3fb68b;  /* 좋음 / 강조 (초록) */
+    --down: #f0616d;    /* 나쁨 / 하락 (빨강) */
+    --warn: #e3b341;    /* 주의 (노랑) */
+    --price: #f2a93b;   /* 가격선 (주황) */
+    --edit: #58a6ff;    /* 편집 관련 (파랑) */
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   }
+  button { font: inherit; }
 
   /* ===== 맨 위 막대 ===== */
   header {
     display: flex; align-items: center; gap: 10px;
-    padding: 14px 20px; border-bottom: 1px solid var(--line);
+    padding: 12px 20px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--bg); z-index: 5;
   }
   .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent);
           display: grid; place-items: center; color: var(--bg); font-weight: 800; }
   header h1 { font-size: 17px; margin: 0; }
-  header span { color: var(--muted); font-size: 13px; }
-
-  /* ===== 전체 배치: 왼쪽 메뉴 + 오른쪽 본문 ===== */
-  .layout { display: grid; grid-template-columns: 230px 1fr; min-height: calc(100vh - 55px); }
-
-  nav { border-right: 1px solid var(--line); padding: 14px 10px; }
-  nav h3 { font-size: 11px; color: var(--muted); letter-spacing: .08em;
-           margin: 16px 10px 6px; text-transform: uppercase; }
-  nav button {
-    display: block; width: 100%; text-align: left; padding: 9px 10px;
-    border: 0; border-radius: 8px; background: none; color: var(--text);
-    font: inherit; font-size: 14px; cursor: pointer;
+  header .tag { color: var(--muted); font-size: 13px; }
+  header .spacer { flex: 1; }
+  #editToggle {
+    border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    padding: 7px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
   }
-  nav button:hover { background: var(--panel); }
-  nav button.on { background: var(--panel); color: var(--accent); font-weight: 600; }
+  body.editing #editToggle { border-color: var(--edit); color: var(--edit); }
 
-  main { padding: 22px 26px; min-width: 0; }
-  main h2 { margin: 0 0 6px; font-size: 22px; }
-  .desc { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 18px; max-width: 760px; }
+  /* ===== 코인 선택 탭 ===== */
+  .coins { display: flex; gap: 6px; overflow-x: auto; padding: 12px 20px;
+           border-bottom: 1px solid var(--line); }
+  .coins a {
+    flex: none; padding: 7px 13px; border-radius: 999px; text-decoration: none;
+    color: var(--muted); border: 1px solid var(--line); font-size: 14px;
+  }
+  .coins a.on { color: var(--bg); background: var(--text); border-color: var(--text); font-weight: 600; }
 
-  /* ===== 숫자 카드 ===== */
-  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
-  .card small { color: var(--muted); font-size: 12px; }
-  .card b { display: block; font-size: 20px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  main { padding: 20px; max-width: 1280px; margin: 0 auto; }
+
+  /* ===== 편집 모드 안내 막대 ===== */
+  .editbar {
+    display: none; flex-wrap: wrap; align-items: center; gap: 8px;
+    border: 1px solid var(--edit); background: rgba(88,166,255,.08);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 18px; font-size: 13px; line-height: 1.6;
+  }
+  body.editing .editbar { display: flex; }
+  .editbar p { margin: 0; flex: 1 1 320px; color: var(--muted); }
+  .editbar b { color: var(--text); }
+  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--text);
+         padding: 6px 11px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--edit); border-color: var(--edit); color: #0d1117; font-weight: 600; }
+
+  /* ===== 코인 요약 (맨 위 큰 숫자) ===== */
+  .hero { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 32px; margin-bottom: 24px; }
+  .hero h2 { margin: 0; font-size: 15px; color: var(--muted); font-weight: 500; }
+  .hero .price { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hero .chg { font-size: 15px; margin-left: 8px; }
+  .hero .stat small { display: block; color: var(--muted); font-size: 12px; }
+  .hero .stat b { font-size: 16px; font-variant-numeric: tabular-nums; }
+
+  /* ===== 지표 묶음과 카드 ===== */
+  section { margin-bottom: 28px; }
+  section h3 { font-size: 16px; margin: 0 0 4px; }
+  section > p { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .card {
+    text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px; cursor: pointer; color: var(--text); display: flex; flex-direction: column; gap: 6px;
+  }
+  .card:hover { background: var(--panel2); border-color: #384150; }
+  .card .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .card .name { font-size: 13px; color: var(--muted); }
+  .card .val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .card .sub { font-size: 12px; color: var(--muted); }
+  .card svg { width: 100%; height: 42px; display: block; }
+  .card .memo { font-size: 12px; color: var(--edit); border-top: 1px dashed var(--line); padding-top: 6px; white-space: pre-wrap; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; font-weight: 600; }
+  .t-good { color: var(--accent); background: rgba(63,182,139,.12); }
+  .t-bad  { color: var(--down);   background: rgba(240,97,109,.12); }
+  .t-warn { color: var(--warn);   background: rgba(227,179,65,.12); }
+  .t-mid  { color: var(--muted);  background: rgba(139,148,158,.12); }
+  .edited { font-size: 11px; color: var(--edit); }
   .up { color: var(--accent); } .dn { color: var(--down); }
+  .loading { color: var(--muted); padding: 40px 0; text-align: center; }
 
-  /* ===== 차트 위 버튼들 ===== */
+  /* ===== 상세 차트 창 ===== */
+  dialog {
+    width: min(1000px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 20px;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .dhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .dhead small { color: var(--muted); }
+  .dhead h3 { margin: 2px 0 0; font-size: 20px; }
+  #dClose { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; }
+  .desc { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 8px 0 14px; }
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-  .seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+  .seg { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
   .seg button { border: 0; background: none; color: var(--muted); padding: 5px 11px;
-                border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer; }
+                border-radius: 6px; font-size: 13px; cursor: pointer; }
   .seg button.on { background: var(--line); color: var(--text); }
   label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 5px; align-items: center; cursor: pointer; }
-
-  .chartbox { position: relative; background: var(--panel); border: 1px solid var(--line);
-              border-radius: 10px; height: 460px; }
+  .chartbox { position: relative; height: 380px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
   #chart { position: absolute; inset: 0; }
-  #msg { position: absolute; inset: 0; display: grid; place-items: center;
-         color: var(--muted); font-size: 14px; pointer-events: none; text-align: center; padding: 20px; }
-  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px; }
   .legend i { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 5px; }
-  footer { color: var(--muted); font-size: 12px; margin-top: 20px; }
+
+  /* ===== 상세 창 안의 편집 영역 ===== */
+  #editArea { display: none; margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+  body.editing #editArea { display: block; }
+  #editArea h4 { margin: 0 0 8px; font-size: 14px; color: var(--edit); }
+  #editArea .hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+  .addrow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  input, textarea {
+    background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 9px; font: inherit; font-size: 13px;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--edit); }
+  input[type=date] { color-scheme: dark; }
+  .tablewrap { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--panel); }
+  td input { width: 100%; min-width: 110px; }
+  tr.changed td { background: rgba(88,166,255,.07); }
+  textarea { width: 100%; min-height: 60px; resize: vertical; }
+
+  footer { color: var(--muted); font-size: 12px; padding: 10px 20px 30px; max-width: 1280px; margin: 0 auto; line-height: 1.7; }
   footer a { color: var(--muted); }
 
   /* ===== 휴대폰 화면 ===== */
-  @media (max-width: 760px) {
-    .layout { grid-template-columns: 1fr; }
-    nav { border-right: 0; border-bottom: 1px solid var(--line); display: flex;
-          overflow-x: auto; gap: 4px; padding: 8px 16px; }
-    nav h3 { display: none; }
-    nav button { white-space: nowrap; width: auto; }
-    main { padding: 18px 16px; }
-    .cards { grid-template-columns: 1fr 1fr; }
-    .chartbox { height: 340px; }
+  @media (max-width: 640px) {
+    header { padding: 10px 16px; }
+    header .tag { display: none; }
+    .coins { padding: 10px 16px; }
+    main { padding: 16px; }
+    .grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .card { padding: 11px; }
+    .card .val { font-size: 17px; }
+    .hero .price { font-size: 28px; }
+    dialog { width: 100vw; max-width: 100vw; max-height: 100vh; height: 100vh; border-radius: 0; padding: 14px 16px; }
+    .chartbox { height: 300px; }
+    footer { padding: 10px 16px 30px; }
   }
 </style>
 </head>
@@ -97,227 +172,584 @@
 <header>
   <div class="logo">◎</div>
   <h1>체인렌즈</h1>
-  <span>비트코인 온체인 지표</span>
+  <span class="tag">코인별 온체인 요약</span>
+  <span class="spacer"></span>
+  <button id="editToggle">✎ 데이터 편집</button>
 </header>
 
-<div class="layout">
-  <nav id="menu"></nav>
+<nav class="coins" id="coins"></nav>
 
-  <main>
-    <h2 id="title">불러오는 중…</h2>
-    <p class="desc" id="desc"></p>
+<main>
+  <div class="editbar">
+    <p>
+      <b>편집 모드</b> · 카드를 눌러 값을 고치거나 메모를 남겨 보세요. 고친 내용은 <b>이 브라우저에 바로 저장</b>돼요.
+      다른 사람에게도 보이게 하려면 <b>파일로 내보내기</b>를 누른 뒤, 받은 <b>overrides.json</b>을 GitHub 저장소에 올리세요.
+      <span id="editCount"></span>
+    </p>
+    <button class="btn primary" id="exportBtn">파일로 내보내기</button>
+    <button class="btn" id="importBtn">파일 불러오기</button>
+    <button class="btn" id="resetBtn">게시된 버전으로 되돌리기</button>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+  </div>
 
-    <div class="cards">
-      <div class="card"><small>최신 값</small><b id="cLast">–</b></div>
-      <div class="card"><small>기간 내 변화</small><b id="cChg">–</b></div>
-      <div class="card"><small>기간 내 최고</small><b id="cHigh">–</b></div>
+  <div id="page"><div class="loading">데이터 불러오는 중…</div></div>
+</main>
+
+<footer>
+  데이터: <a href="https://coinmetrics.io/community-network-data/" target="_blank" rel="noopener">Coin Metrics Community Data</a> (CC BY-NC 4.0) ·
+  상태 표시(저평가·과열 등)는 널리 쓰이는 단순 기준으로 자동 계산한 것이며 투자 조언이 아닙니다 ·
+  <span style="color:var(--edit)">✎ 수정됨</span> 표시는 사이트 주인이 직접 고친 값이 들어 있다는 뜻이에요.
+</footer>
+
+<!-- 카드를 누르면 열리는 상세 창 -->
+<dialog id="dlg">
+  <div class="dhead">
+    <div><small id="dCoin"></small><h3 id="dTitle"></h3></div>
+    <button id="dClose" aria-label="닫기">✕</button>
+  </div>
+  <p class="desc" id="dDesc"></p>
+  <div class="toolbar">
+    <div class="seg" id="range">
+      <button data-days="90">3개월</button>
+      <button data-days="365" class="on">1년</button>
+      <button data-days="1095">3년</button>
+      <button data-days="0">전체</button>
     </div>
-
-    <div class="toolbar">
-      <div class="seg" id="range">
-        <button data-r="30days">1개월</button>
-        <button data-r="90days">3개월</button>
-        <button data-r="1year" class="on">1년</button>
-        <button data-r="3years">3년</button>
-        <button data-r="all">전체</button>
-      </div>
-      <label class="chk"><input type="checkbox" id="showPrice" checked> 가격 겹쳐 보기</label>
-      <label class="chk"><input type="checkbox" id="logScale"> 로그 스케일</label>
-    </div>
-
-    <div class="chartbox">
-      <div id="chart"></div>
-      <div id="msg"></div>
-    </div>
-    <div class="legend">
-      <span><i style="background:var(--accent)"></i><span id="lgName">지표</span></span>
-      <span id="lgPrice"><i style="background:var(--price)"></i>BTC 가격 (USD)</span>
-    </div>
-
-    <footer>
-      데이터: <a href="https://www.blockchain.com/explorer/charts" target="_blank" rel="noopener">Blockchain.com 공개 API</a> ·
-      학습용 프로젝트이며 투자 조언이 아닙니다.
-    </footer>
-  </main>
-</div>
+    <label class="chk"><input type="checkbox" id="showPrice" checked> 가격 겹쳐 보기</label>
+    <label class="chk"><input type="checkbox" id="logScale"> 로그 스케일</label>
+  </div>
+  <div class="chartbox"><div id="chart"></div></div>
+  <div class="legend">
+    <span><i style="background:var(--accent)"></i><span id="lgName"></span></span>
+    <span id="lgPrice"><i style="background:var(--price)"></i>가격 (USD)</span>
+    <span id="lgEdit"><i style="background:var(--edit);height:8px;width:8px;border-radius:50%"></i>직접 수정한 날짜</span>
+  </div>
+  <div id="editArea"></div>
+</dialog>
 
 <script>
 /* =====================================================================
-   1) 지표 목록
-   - 여기 한 줄을 추가하면 왼쪽 메뉴에 지표가 하나 더 생겨요.
-   - id: Blockchain.com 데이터 이름
-   - scale: 화면에 보여줄 때 나눌 숫자 (예: 해시레이트를 EH/s로)
+   1) 코인 목록
+   - extra: 그 코인에서만 받을 수 있는 추가 지표
+   - 무료 데이터라서 코인마다 제공되는 지표가 조금씩 달라요
    ===================================================================== */
+const COINS = [
+  { id: 'btc',  name: '비트코인',     sym: 'BTC',  extra: ['FeeTotNtv', 'HashRate', 'IssTotUSD', 'FlowInExUSD', 'FlowOutExUSD', 'SplyExNtv'] },
+  { id: 'eth',  name: '이더리움',     sym: 'ETH',  extra: ['FeeTotNtv', 'IssTotUSD', 'FlowInExUSD', 'FlowOutExUSD', 'SplyExNtv'] },
+  { id: 'xrp',  name: '리플',         sym: 'XRP',  extra: ['FeeTotNtv'] },
+  { id: 'doge', name: '도지코인',     sym: 'DOGE', extra: ['FeeTotNtv', 'HashRate', 'IssTotUSD'] },
+  { id: 'ltc',  name: '라이트코인',   sym: 'LTC',  extra: ['FeeTotNtv', 'HashRate', 'IssTotUSD'] },
+  { id: 'bch',  name: '비트코인캐시', sym: 'BCH',  extra: ['FeeTotNtv', 'HashRate', 'IssTotUSD'] },
+  { id: 'ada',  name: '에이다',       sym: 'ADA',  extra: ['FeeTotNtv', 'IssTotUSD'] },
+  { id: 'link', name: '체인링크',     sym: 'LINK', extra: ['IssTotUSD'] },
+  { id: 'usdt', name: '테더',         sym: 'USDT', extra: [] },
+];
+// 모든 코인에 공통으로 있는 지표
+const COMMON = ['PriceUSD', 'CapMrktCurUSD', 'CapMVRVCur', 'AdrActCnt', 'TxCnt', 'AdrBalCnt', 'SplyCur', 'ROI30d'];
+
+/* =====================================================================
+   2) 지표 묶음과 지표 설명
+   - key: Coin Metrics 데이터 이름
+   - fmt: 숫자 표시 방법 (usd 달러, num 개수, ratio 비율, pct 퍼센트, hash 해시, coin 코인 수)
+   - needs + calc: 다른 지표 두 개로 계산하는 지표
+   ===================================================================== */
+const SECTIONS = [
+  { id: 'flow',     name: '거래소 흐름',  desc: '코인이 거래소로 들어가는지(팔 준비), 빠져나가는지(보관) 보여줘요.' },
+  { id: 'value',    name: '가치평가',     desc: '지금 가격이 비싼지 싼지 가늠하는 지표예요.' },
+  { id: 'activity', name: '네트워크 활동', desc: '실제로 얼마나 많은 사람이 이 블록체인을 쓰는지 보여줘요.' },
+  { id: 'supply',   name: '채굴 · 공급',  desc: '코인이 얼마나 새로 만들어지고, 네트워크가 얼마나 튼튼한지 보여줘요.' },
+];
+
 const METRICS = [
-  { group: '시장', id: 'market-price', name: '비트코인 가격', unit: 'USD', money: true,
-    desc: '거래소들의 평균 비트코인 가격이에요. 다른 지표를 볼 때 기준이 되는 값이에요.' },
-  { group: '시장', id: 'market-cap', name: '시가총액', unit: 'USD', money: true,
-    desc: '가격 × 발행된 비트코인 수. 비트코인 전체의 "몸값"이에요.' },
+  { key: 'NetflowUSD', sec: 'flow', name: '거래소 순유입', fmt: 'usd', kind: 'hist',
+    needs: ['FlowInExUSD', 'FlowOutExUSD'], calc: (a, b) => a - b,
+    desc: '거래소로 들어온 금액 − 거래소에서 나간 금액이에요. 플러스(+)가 크면 팔려고 거래소로 옮기는 코인이 많다는 뜻이라 매도 압력으로, 마이너스(−)면 개인 지갑으로 옮겨 보관하는 흐름으로 해석해요.' },
+  { key: 'FlowInExUSD', sec: 'flow', name: '거래소 유입량', fmt: 'usd',
+    desc: '하루 동안 거래소 지갑으로 들어온 코인의 달러 가치예요. 갑자기 크게 늘면 큰손이 팔 준비를 하는 신호일 수 있어요.' },
+  { key: 'FlowOutExUSD', sec: 'flow', name: '거래소 유출량', fmt: 'usd',
+    desc: '하루 동안 거래소에서 빠져나간 코인의 달러 가치예요. 늘어나면 사서 개인 지갑에 보관하려는 사람이 많다는 뜻으로 봐요.' },
+  { key: 'SplyExNtv', sec: 'flow', name: '거래소 보유량', fmt: 'coin',
+    desc: '모든 거래소 지갑에 쌓여 있는 코인 수예요. 줄어들면 장기 보유 성향이, 늘어나면 팔 수 있는 물량이 늘어난 것으로 해석해요.' },
 
-  { group: '가치평가', id: 'nvt', name: 'NVT 비율', unit: '', derived: true,
-    desc: '시가총액 ÷ 하루 온체인 거래액. 주식의 PER과 비슷한 개념이에요. 높으면 실제 사용량에 비해 가격이 비싸다는 신호로, 낮으면 저평가 신호로 보기도 해요.' },
+  { key: 'PriceUSD', sec: 'value', name: '가격', fmt: 'usd',
+    desc: '여러 거래소 가격을 모아 계산한 기준 가격(달러)이에요.' },
+  { key: 'CapMrktCurUSD', sec: 'value', name: '시가총액', fmt: 'usd',
+    desc: '가격 × 유통량. 이 코인 전체의 "몸값"이에요.' },
+  { key: 'CapMVRVCur', sec: 'value', name: 'MVRV 비율', fmt: 'ratio',
+    desc: '시가총액 ÷ 실현 시가총액(각 코인이 마지막으로 옮겨졌을 때 가격으로 계산한 가치)이에요. 1보다 낮으면 보유자들이 평균적으로 손실 중이라 저평가로, 3.5보다 높으면 과열로 자주 해석해요.' },
+  { key: 'ROI30d', sec: 'value', name: '30일 수익률', fmt: 'pct',
+    desc: '30일 전에 샀다면 지금 몇 % 수익(또는 손실)인지 보여줘요.' },
 
-  { group: '네트워크', id: 'hash-rate', name: '해시레이트', unit: 'EH/s', scale: 1e6,
-    desc: '전 세계 채굴기가 쓰는 계산 능력의 합이에요. 높을수록 네트워크가 안전하고, 채굴자들이 미래를 낙관한다는 뜻으로 해석돼요.' },
-  { group: '네트워크', id: 'difficulty', name: '채굴 난이도', unit: 'T', scale: 1e12,
-    desc: '블록 하나를 찾는 데 필요한 난이도. 약 2주마다 해시레이트에 맞춰 자동으로 조절돼요.' },
+  { key: 'AdrActCnt', sec: 'activity', name: '활성 주소 수', fmt: 'num',
+    desc: '하루 동안 거래에 참여한 고유 주소 수예요. 사용자 활동의 크기를 대략 보여줘요.' },
+  { key: 'TxCnt', sec: 'activity', name: '일일 거래 수', fmt: 'num',
+    desc: '하루 동안 블록체인에 기록된 거래 개수예요.' },
+  { key: 'AdrBalCnt', sec: 'activity', name: '코인 보유 주소 수', fmt: 'num',
+    desc: '잔고가 0보다 많은 주소 수예요. 꾸준히 늘면 보유자층이 넓어지고 있다는 뜻이에요.' },
+  { key: 'FeeTotUSD', sec: 'activity', name: '거래 수수료 합계', fmt: 'usd',
+    needs: ['FeeTotNtv', 'PriceUSD'], calc: (a, b) => a * b,
+    desc: '하루 동안 사용자들이 낸 수수료 총액(달러)이에요. 네트워크가 붐빌수록 올라가요.' },
 
-  { group: '활동', id: 'n-transactions', name: '일일 거래 수', unit: '건',
-    desc: '하루 동안 블록체인에 기록된 거래 개수. 네트워크가 얼마나 많이 쓰이는지 보여줘요.' },
-  { group: '활동', id: 'n-unique-addresses', name: '활성 주소 수', unit: '개',
-    desc: '하루 동안 거래에 참여한 고유 주소 수. 사용자 활동의 대략적인 크기를 보여줘요.' },
-  { group: '활동', id: 'estimated-transaction-volume-usd', name: '온체인 거래액', unit: 'USD', money: true,
-    desc: '하루 동안 블록체인 위에서 실제로 옮겨진 비트코인의 달러 가치(추정치)예요.' },
-
-  { group: '채굴', id: 'miners-revenue', name: '채굴자 수익', unit: 'USD', money: true,
-    desc: '블록 보상 + 수수료로 채굴자가 하루에 버는 돈. 수익이 줄면 채굴자들이 비트코인을 팔 압력이 생길 수 있어요.' },
-  { group: '채굴', id: 'transaction-fees-usd', name: '거래 수수료 합계', unit: 'USD', money: true,
-    desc: '하루 동안 사용자들이 낸 수수료 총액. 네트워크가 붐빌수록 올라가요.' },
+  { key: 'HashRate', sec: 'supply', name: '해시레이트', fmt: 'hash',
+    desc: '채굴기들이 쓰는 계산 능력의 합이에요. 높을수록 네트워크가 안전하고, 채굴자들이 앞으로를 좋게 본다는 뜻으로 해석해요.' },
+  { key: 'IssTotUSD', sec: 'supply', name: '신규 발행액', fmt: 'usd',
+    desc: '하루 동안 새로 만들어진 코인의 달러 가치예요. 채굴자나 검증자가 받는 보상이에요.' },
+  { key: 'SplyCur', sec: 'supply', name: '유통량', fmt: 'coin',
+    desc: '지금까지 발행된 코인의 총 개수예요.' },
 ];
 
 /* =====================================================================
-   2) 데이터 가져오기
+   3) 데이터 가져오기 (Coin Metrics 무료 API)
    ===================================================================== */
-const cache = {};
-async function load(id, range) {
-  const key = id + range;
-  if (cache[key]) return cache[key];
-  const url = `https://api.blockchain.info/charts/${id}?timespan=${range}&format=json&cors=true&sampled=false`;
+const API = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics';
+const raw = {};   // raw.btc.PriceUSD = Map('2026-10-11' → 값)
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function getRows(id, metrics, tries = 0) {
+  const url = `${API}?assets=${id}&metrics=${metrics.join(',')}&frequency=1d&page_size=10000&paging_from=end`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(id + ' 데이터를 못 가져왔어요 (' + res.status + ')');
+  if (res.status === 429 && tries < 4) {          // 요청이 너무 많으면 잠깐 쉬었다가 다시
+    await sleep(2000 * (tries + 1));
+    return getRows(id, metrics, tries + 1);
+  }
   const json = await res.json();
-  // 하루에 값 하나만 남기고 날짜 순으로 정리 (차트가 요구하는 형식)
-  const byDay = new Map();
-  for (const p of json.values) byDay.set(Math.floor(p.x / 86400) * 86400, p.y);
-  const rows = [...byDay].sort((a, b) => a[0] - b[0]).map(([time, value]) => ({ time, value }));
-  return (cache[key] = rows);
+  if (json.error) throw new Error(json.error.message);
+  return json.data;
 }
 
-// NVT = 시가총액 ÷ 온체인 거래액 (같은 날짜끼리 나눔)
-async function loadNVT(range) {
-  const [cap, vol] = await Promise.all([
-    load('market-cap', range), load('estimated-transaction-volume-usd', range),
-  ]);
-  const volMap = new Map(vol.map(r => [r.time, r.value]));
-  return cap.filter(r => volMap.get(r.time) > 0)
-            .map(r => ({ time: r.time, value: r.value / volMap.get(r.time) }));
-}
-
-/* =====================================================================
-   3) 숫자 보기 좋게 바꾸기  (1234567 → 1.23M)
-   ===================================================================== */
-function fmt(v, m) {
-  if (v == null || isNaN(v)) return '–';
-  const a = Math.abs(v);
-  let s = a >= 1e12 ? (v / 1e12).toFixed(2) + 'T'
-        : a >= 1e9  ? (v / 1e9).toFixed(2) + 'B'
-        : a >= 1e6  ? (v / 1e6).toFixed(2) + 'M'
-        : a >= 1e4  ? Math.round(v).toLocaleString('en-US')
-        : v.toFixed(2);
-  if (m && m.money) return '$' + s;
-  return m && m.unit ? s + ' ' + m.unit : s;
-}
-
-/* =====================================================================
-   4) 차트 만들기
-   ===================================================================== */
-const css = getComputedStyle(document.documentElement);
-const C = n => css.getPropertyValue(n).trim();
-
-const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-  autoSize: true,
-  layout: { background: { color: 'transparent' }, textColor: C('--muted'), fontSize: 12 },
-  grid: { vertLines: { color: C('--line') }, horzLines: { color: C('--line') } },
-  rightPriceScale: { borderColor: C('--line') },
-  leftPriceScale: { borderColor: C('--line'), visible: true },
-  timeScale: { borderColor: C('--line') },
-  crosshair: { mode: 0 },
-});
-const metricSeries = chart.addAreaSeries({
-  priceScaleId: 'right', lineColor: C('--accent'), lineWidth: 2,
-  topColor: 'rgba(63,182,139,.35)', bottomColor: 'rgba(63,182,139,0)',
-  priceFormat: { type: 'custom', formatter: v => fmt(v) },
-});
-const priceSeries = chart.addLineSeries({
-  priceScaleId: 'left', color: C('--price'), lineWidth: 1.5,
-  priceFormat: { type: 'custom', formatter: v => '$' + fmt(v) },
-});
-
-/* =====================================================================
-   5) 화면 상태와 그리기
-   ===================================================================== */
-let current = METRICS[3];   // 처음 보여줄 지표 (해시레이트)
-let range = '1year';
-const $ = id => document.getElementById(id);
-
-// 왼쪽 메뉴 만들기
-let lastGroup = '';
-for (const m of METRICS) {
-  if (m.group !== lastGroup) {
-    $('menu').insertAdjacentHTML('beforeend', `<h3>${m.group}</h3>`);
-    lastGroup = m.group;
-  }
-  const b = document.createElement('button');
-  b.textContent = m.name;
-  b.onclick = () => { current = m; draw(); };
-  m.btn = b;
-  $('menu').appendChild(b);
-}
-
-async function draw() {
-  METRICS.forEach(m => m.btn.classList.toggle('on', m === current));
-  $('title').textContent = current.name;
-  $('desc').textContent = current.desc;
-  $('lgName').textContent = current.name + (current.unit ? ` (${current.unit})` : '');
-  $('msg').textContent = '데이터 불러오는 중…';
-
-  const mine = current;
+async function fetchCoin(c) {
+  if (raw[c.id]) return raw[c.id];
+  const metrics = [...COMMON, ...c.extra];
+  let rows;
   try {
-    const [raw, price] = await Promise.all([
-      current.derived ? loadNVT(range) : load(current.id, range),
-      load('market-price', range),
-    ]);
-    if (mine !== current) return;   // 그사이 다른 메뉴를 눌렀으면 무시
-    const k = current.scale || 1;
-    const data = raw.map(r => ({ time: r.time, value: r.value / k }));
-
-    metricSeries.setData(data);
-    metricSeries.applyOptions({ priceFormat: { type: 'custom', formatter: v => fmt(v, current) } });
-
-    const showPrice = $('showPrice').checked && current.id !== 'market-price';
-    priceSeries.setData(showPrice ? price : []);
-    chart.applyOptions({ leftPriceScale: { visible: showPrice } });
-    $('lgPrice').style.display = showPrice ? '' : 'none';
-    chart.timeScale().fitContent();
-
-    // 숫자 카드 채우기
-    const first = data[0]?.value, last = data[data.length - 1]?.value;
-    const chg = (last - first) / first * 100;
-    $('cLast').textContent = fmt(last, current);
-    $('cChg').textContent = isFinite(chg) ? (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%' : '–';
-    $('cChg').className = chg >= 0 ? 'up' : 'dn';
-    $('cHigh').textContent = fmt(Math.max(...data.map(d => d.value)), current);
-    $('msg').textContent = data.length ? '' : '이 기간에는 데이터가 없어요.';
+    rows = await getRows(c.id, metrics);          // 한 번에 다 받아오기
   } catch (e) {
-    $('msg').textContent = '데이터를 불러오지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 시도해 주세요.\n' + e.message;
+    rows = [];                                    // 실패하면 지표별로 하나씩
+    for (const m of metrics) {
+      try { rows.push(...await getRows(c.id, [m])); } catch {}
+    }
+  }
+  const out = {};
+  for (const m of metrics) out[m] = new Map();
+  for (const r of rows) {
+    const day = r.time.slice(0, 10);
+    for (const m of metrics) if (r[m] != null && r[m] !== '') out[m].set(day, parseFloat(r[m]));
+  }
+  return (raw[c.id] = out);
+}
+
+/* =====================================================================
+   4) 내가 고친 값 (overrides)
+   - 구조: { values: { btc: { PriceUSD: { '2026-10-11': 82000 } } },
+             notes:  { btc: { CapMVRVCur: '메모' } } }
+   - 저장 순서: 이 브라우저에 저장된 것 > GitHub에 올린 overrides.json
+   ===================================================================== */
+const LS_KEY = 'chainlens-overrides';
+let PUBLISHED = { values: {}, notes: {} };
+let OV = { values: {}, notes: {} };
+const tidy = o => ({ values: (o && o.values) || {}, notes: (o && o.notes) || {} });
+
+async function loadOverrides() {
+  try {
+    const r = await fetch('overrides.json', { cache: 'no-store' });
+    if (r.ok) PUBLISHED = tidy(await r.json());
+  } catch {}
+  let local = null;
+  try { local = JSON.parse(localStorage.getItem(LS_KEY)); } catch {}
+  OV = tidy(local || JSON.parse(JSON.stringify(PUBLISHED)));
+}
+function saveLocal() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(OV)); } catch {}
+  updateEditCount();
+}
+function setValue(coinId, key, day, value) {
+  const byCoin = (OV.values[coinId] ??= {});
+  const byKey = (byCoin[key] ??= {});
+  if (value === '' || value == null || !isFinite(value)) delete byKey[day];
+  else byKey[day] = Number(value);
+  if (!Object.keys(byKey).length) delete byCoin[key];
+  if (!Object.keys(byCoin).length) delete OV.values[coinId];
+  saveLocal();
+}
+function setNote(coinId, key, text) {
+  const byCoin = (OV.notes[coinId] ??= {});
+  if (text.trim()) byCoin[key] = text; else delete byCoin[key];
+  if (!Object.keys(byCoin).length) delete OV.notes[coinId];
+  saveLocal();
+}
+const editsOf = (coinId, key) => (OV.values[coinId] && OV.values[coinId][key]) || {};
+const noteOf  = (coinId, key) => (OV.notes[coinId] && OV.notes[coinId][key]) || '';
+function editedDays(coinId, def) {
+  const keys = def.needs || [def.key];
+  return [...new Set(keys.flatMap(k => Object.keys(editsOf(coinId, k))))].sort();
+}
+function updateEditCount() {
+  let n = 0;
+  for (const c of Object.values(OV.values)) for (const k of Object.values(c)) n += Object.keys(k).length;
+  let m = 0;
+  for (const c of Object.values(OV.notes)) m += Object.keys(c).length;
+  document.getElementById('editCount').textContent = `(지금 고친 값 ${n}개 · 메모 ${m}개)`;
+}
+
+/* =====================================================================
+   5) 지표 데이터 만들기 (원본 + 내가 고친 값 합치기)
+   ===================================================================== */
+function baseMap(coinId, key) {
+  const m = new Map((raw[coinId] && raw[coinId][key]) || []);
+  for (const [day, v] of Object.entries(editsOf(coinId, key))) m.set(day, v);
+  return m;
+}
+function seriesMap(coinId, def) {
+  if (!def.calc) return baseMap(coinId, def.key);
+  const [a, b] = def.needs.map(k => baseMap(coinId, k));
+  const out = new Map();
+  for (const [day, va] of a) { const vb = b.get(day); if (vb != null) out.set(day, def.calc(va, vb)); }
+  return out;
+}
+const toArr = map => [...map].sort((x, y) => (x[0] < y[0] ? -1 : 1)).map(([time, value]) => ({ time, value }));
+
+/* =====================================================================
+   6) 숫자 보기 좋게 바꾸기
+   ===================================================================== */
+function short(v) {
+  const a = Math.abs(v);
+  if (a >= 1e12) return (v / 1e12).toFixed(2) + 'T';
+  if (a >= 1e9)  return (v / 1e9).toFixed(2) + 'B';
+  if (a >= 1e6)  return (v / 1e6).toFixed(2) + 'M';
+  if (a >= 1000) return Math.round(v).toLocaleString('en-US');
+  if (a >= 1)    return v.toFixed(2);
+  if (a === 0)   return '0';
+  return Number(v.toPrecision(3)).toString();
+}
+function hash(th) {   // 원본 단위: TH/s
+  for (const [u, f] of [['EH/s', 1e6], ['PH/s', 1e3], ['TH/s', 1], ['GH/s', 1e-3]])
+    if (th >= f) return (th / f).toFixed(2) + ' ' + u;
+  return (th * 1e6).toFixed(2) + ' MH/s';
+}
+function fmt(v, def, c) {
+  if (v == null || !isFinite(v)) return '–';
+  switch (def.fmt) {
+    case 'usd':   return (v < 0 ? '-$' : '$') + short(Math.abs(v));
+    case 'ratio': return v.toFixed(2);
+    case 'pct':   return (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+    case 'hash':  return hash(v);
+    case 'coin':  return short(v) + ' ' + c.sym;
+    default:      return short(v);
+  }
+}
+const rawUnit = (def, c) => ({ usd: 'USD', ratio: '배', pct: '%', hash: 'TH/s', coin: c.sym })[def.fmt] || '개';
+const avg = a => a.reduce((s, x) => s + x.value, 0) / (a.length || 1);
+
+/* =====================================================================
+   7) 상태 표시 (저평가/과열 등) — 단순한 기준으로 자동 계산
+   ===================================================================== */
+function signal(def, arr) {
+  if (arr.length < 31) return null;
+  const last = arr[arr.length - 1].value;
+  const trend = (up, down) => {
+    const r = avg(arr.slice(-7)) / avg(arr.slice(-90)) - 1;
+    return r > 0.05 ? { t: up, c: 'good' } : r < -0.05 ? { t: down, c: 'bad' } : { t: '보합', c: 'mid' };
+  };
+  switch (def.key) {
+    case 'CapMVRVCur':
+      return last < 1 ? { t: '저평가', c: 'good' } : last > 3.5 ? { t: '과열', c: 'bad' }
+           : last > 2.4 ? { t: '고평가 주의', c: 'warn' } : { t: '중립', c: 'mid' };
+    case 'NetflowUSD': {
+      const s = arr.slice(-7).reduce((x, p) => x + p.value, 0);
+      return s > 0 ? { t: '유입 우세', c: 'bad' } : { t: '유출 우세', c: 'good' };
+    }
+    case 'SplyExNtv':
+      return last < arr[arr.length - 31].value ? { t: '보유량 감소', c: 'good' } : { t: '보유량 증가', c: 'bad' };
+    case 'AdrActCnt': case 'TxCnt': return trend('활동 증가', '활동 감소');
+    case 'HashRate': return trend('상승세', '하락세');
+    default: return null;
   }
 }
 
-// 기간 버튼
+/* 카드 아래 작은 설명 줄 */
+function subLine(def, arr, c) {
+  if (arr.length < 2) return '';
+  if (def.sec === 'flow' && def.key !== 'SplyExNtv') {
+    return '최근 7일 합계 ' + fmt(arr.slice(-7).reduce((s, p) => s + p.value, 0), def, c);
+  }
+  const prev = arr[Math.max(0, arr.length - 31)].value, last = arr[arr.length - 1].value;
+  if (def.fmt === 'ratio' || def.fmt === 'pct') return '30일 전 ' + fmt(prev, def, c);
+  const chg = (last - prev) / Math.abs(prev) * 100;
+  if (!isFinite(chg)) return '';
+  return `30일 전보다 <span class="${chg >= 0 ? 'up' : 'dn'}">${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%</span>`;
+}
+
+/* 카드 속 작은 그래프 (최근 90일) */
+function sparkline(def, arr) {
+  const pts = arr.slice(-90);
+  if (pts.length < 2) return '';
+  const W = 200, H = 42;
+  const vals = pts.map(p => p.value);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (def.kind === 'hist') { min = Math.min(min, 0); max = Math.max(max, 0); }
+  const y = v => H - 2 - (v - min) / ((max - min) || 1) * (H - 4);
+  if (def.kind === 'hist') {
+    const w = W / pts.length, zero = y(0);
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">` + pts.map((p, i) =>
+      `<rect x="${(i * w).toFixed(1)}" width="${Math.max(w - 0.6, 0.6).toFixed(1)}" y="${Math.min(y(p.value), zero).toFixed(1)}"
+        height="${Math.max(Math.abs(y(p.value) - zero), 0.5).toFixed(1)}" fill="${p.value >= 0 ? 'var(--down)' : 'var(--accent)'}"/>`).join('') + '</svg>';
+  }
+  const d = pts.map((p, i) => `${(i / (pts.length - 1) * W).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <polyline points="${d}" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+/* =====================================================================
+   8) 페이지 그리기
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const currentCoin = () => COINS.find(c => c.id === location.hash.slice(1)) || COINS[0];
+
+// 코인 탭 만들기
+$('coins').innerHTML = COINS.map(c => `<a href="#${c.id}" data-id="${c.id}">${c.name} <small>${c.sym}</small></a>`).join('');
+
+async function renderCoin() {
+  const c = currentCoin();
+  document.querySelectorAll('.coins a').forEach(a => a.classList.toggle('on', a.dataset.id === c.id));
+  document.title = `${c.name} 온체인 요약 · 체인렌즈`;
+  if (!raw[c.id]) $('page').innerHTML = `<div class="loading">${c.name} 데이터 불러오는 중…</div>`;
+  try {
+    await fetchCoin(c);
+  } catch (e) {
+    $('page').innerHTML = `<div class="loading">데이터를 불러오지 못했어요. 잠시 후 새로고침해 주세요.<br>${e.message}</div>`;
+    return;
+  }
+  if (c !== currentCoin()) return;   // 그사이 다른 코인을 눌렀으면 그리지 않기
+  drawPage(c);
+}
+
+function drawPage(c) {
+  const get = key => toArr(seriesMap(c.id, METRICS.find(m => m.key === key)));
+  const price = get('PriceUSD'), cap = get('CapMrktCurUSD'), mvrv = get('CapMVRVCur');
+  const last = a => a.length ? a[a.length - 1].value : null;
+  const p1 = price.length > 1 ? price[price.length - 2].value : null;
+  const dayChg = p1 ? (last(price) / p1 - 1) * 100 : null;
+
+  let html = `
+    <div class="hero">
+      <div>
+        <h2>${c.name} (${c.sym})</h2>
+        <span class="price">${fmt(last(price), { fmt: 'usd' }, c)}</span>
+        ${dayChg == null ? '' : `<span class="chg ${dayChg >= 0 ? 'up' : 'dn'}">${dayChg >= 0 ? '+' : ''}${dayChg.toFixed(2)}% (1일)</span>`}
+      </div>
+      <div class="stat"><small>시가총액</small><b>${fmt(last(cap), { fmt: 'usd' }, c)}</b></div>
+      <div class="stat"><small>MVRV</small><b>${fmt(last(mvrv), { fmt: 'ratio' }, c)}</b></div>
+      <div class="stat"><small>데이터 기준일</small><b>${price.length ? price[price.length - 1].time : '–'}</b></div>
+    </div>`;
+
+  for (const s of SECTIONS) {
+    const cards = METRICS.filter(m => m.sec === s.id).map(def => {
+      const arr = toArr(seriesMap(c.id, def));
+      if (!arr.length) return '';
+      const sig = signal(def, arr);
+      const memo = noteOf(c.id, def.key);
+      return `
+        <button class="card" data-key="${def.key}">
+          <div class="top">
+            <span class="name">${def.name}</span>
+            ${sig ? `<span class="badge t-${sig.c}">${sig.t}</span>` : ''}
+          </div>
+          <div class="val">${fmt(arr[arr.length - 1].value, def, c)}</div>
+          <div class="sub">${subLine(def, arr, c)}
+            ${editedDays(c.id, def).length ? ' · <span class="edited">✎ 수정됨</span>' : ''}</div>
+          ${sparkline(def, arr)}
+          ${memo ? `<div class="memo" data-memo="${def.key}"></div>` : ''}
+        </button>`;
+    }).join('');
+    if (cards.trim()) html += `<section><h3>${s.name}</h3><p>${s.desc}</p><div class="grid">${cards}</div></section>`;
+  }
+  $('page').innerHTML = html;
+  // 메모는 사용자가 쓴 글이라 안전하게 글자로만 넣기
+  document.querySelectorAll('[data-memo]').forEach(el => el.textContent = '메모: ' + noteOf(c.id, el.dataset.memo));
+  document.querySelectorAll('.card').forEach(el => el.onclick = () => openDetail(el.dataset.key));
+}
+
+/* =====================================================================
+   9) 상세 차트 창
+   ===================================================================== */
+let chart, mainSeries, priceSeries, curDef, days = 365;
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function ensureChart() {
+  if (chart) return;
+  chart = LightweightCharts.createChart($('chart'), {
+    autoSize: true,
+    layout: { background: { color: 'transparent' }, textColor: cssVar('--muted'), fontSize: 12 },
+    grid: { vertLines: { color: cssVar('--line') }, horzLines: { color: cssVar('--line') } },
+    rightPriceScale: { borderColor: cssVar('--line') },
+    leftPriceScale: { borderColor: cssVar('--line') },
+    timeScale: { borderColor: cssVar('--line') },
+  });
+}
+
+function openDetail(key) {
+  curDef = METRICS.find(m => m.key === key);
+  $('dlg').showModal();
+  ensureChart();
+  drawDetail();
+  drawEditArea();
+}
+
+function drawDetail() {
+  const c = currentCoin(), def = curDef;
+  $('dCoin').textContent = `${c.name} · ${c.sym}`;
+  $('dTitle').textContent = def.name;
+  $('dDesc').textContent = def.desc;
+  $('lgName').textContent = def.name;
+
+  const all = toArr(seriesMap(c.id, def));
+  const data = days ? all.slice(-days) : all;
+  const fmtFn = v => fmt(v, def, c);
+
+  if (mainSeries) chart.removeSeries(mainSeries);
+  if (priceSeries) { chart.removeSeries(priceSeries); priceSeries = null; }
+
+  if (def.kind === 'hist') {
+    mainSeries = chart.addHistogramSeries({ priceScaleId: 'right', priceFormat: { type: 'custom', formatter: fmtFn } });
+    mainSeries.setData(data.map(p => ({ ...p, color: p.value >= 0 ? cssVar('--down') : cssVar('--accent') })));
+  } else {
+    mainSeries = chart.addAreaSeries({
+      priceScaleId: 'right', lineColor: cssVar('--accent'), lineWidth: 2,
+      topColor: 'rgba(63,182,139,.35)', bottomColor: 'rgba(63,182,139,0)',
+      priceFormat: { type: 'custom', formatter: fmtFn },
+    });
+    mainSeries.setData(data);
+  }
+
+  // 직접 고친 날짜에 파란 점 찍기
+  const from = data.length ? data[0].time : '';
+  const marks = editedDays(c.id, def).filter(d => d >= from)
+    .map(time => ({ time, position: 'inBar', color: cssVar('--edit'), shape: 'circle' }));
+  mainSeries.setMarkers(marks);
+  $('lgEdit').style.display = marks.length ? '' : 'none';
+
+  // 가격 겹쳐 보기
+  const showPrice = $('showPrice').checked && def.key !== 'PriceUSD';
+  if (showPrice) {
+    const pAll = toArr(baseMap(c.id, 'PriceUSD'));
+    priceSeries = chart.addLineSeries({
+      priceScaleId: 'left', color: cssVar('--price'), lineWidth: 1.5,
+      priceFormat: { type: 'custom', formatter: v => fmt(v, { fmt: 'usd' }, c) },
+    });
+    priceSeries.setData(pAll.filter(p => p.time >= from));
+  }
+  const mode = $('logScale').checked && def.kind !== 'hist' ? 1 : 0;
+  chart.applyOptions({ leftPriceScale: { visible: showPrice, mode }, rightPriceScale: { mode } });
+  $('lgPrice').style.display = showPrice ? '' : 'none';
+  chart.timeScale().fitContent();
+}
+
+/* ----- 편집 영역 (편집 모드일 때만 보여요) ----- */
+function drawEditArea() {
+  const c = currentCoin(), def = curDef, box = $('editArea');
+  let html = `<h4>✎ 이 지표 수정하기</h4>`;
+
+  if (def.calc) {
+    const names = def.needs.map(k => (METRICS.find(m => m.key === k) || { name: k }).name).join(', ');
+    html += `<p class="hint">이 지표는 자동으로 계산돼요 (${names}). 그 지표들을 고치면 여기도 함께 바뀌어요.</p>`;
+  } else {
+    const orig = (raw[c.id] && raw[c.id][def.key]) || new Map();
+    const merged = toArr(baseMap(c.id, def.key));
+    const lastDay = merged.length ? merged[merged.length - 1].time : new Date().toISOString().slice(0, 10);
+    // 최근 30일 + 예전에 고친 날짜들 (최신 날짜가 위로)
+    const rows = [...new Set([...merged.slice(-30).map(p => p.time), ...Object.keys(editsOf(c.id, def.key))])].sort().reverse();
+    const mine = editsOf(c.id, def.key);
+    html += `
+      <p class="hint">숫자는 원본 단위(${rawUnit(def, c)})로 넣어 주세요. 칸을 비우면 원래 값으로 돌아가요. 새 날짜를 넣으면 데이터가 추가돼요.</p>
+      <div class="addrow">
+        <input type="date" id="addDay" value="${lastDay}">
+        <input type="number" step="any" id="addVal" placeholder="값 (${rawUnit(def, c)})">
+        <button class="btn primary" id="addBtn">이 날짜에 저장</button>
+      </div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>날짜</th><th>원본 값</th><th>내가 고친 값</th><th></th></tr></thead>
+        <tbody>${rows.map(d => `
+          <tr class="${d in mine ? 'changed' : ''}">
+            <td>${d}</td>
+            <td>${orig.has(d) ? fmt(orig.get(d), def, c) : '<span style="color:var(--muted)">없음</span>'}</td>
+            <td><input type="number" step="any" data-day="${d}" value="${d in mine ? mine[d] : ''}" placeholder="${orig.has(d) ? orig.get(d) : ''}"></td>
+            <td>${d in mine ? `<button class="btn" data-undo="${d}">되돌리기</button>` : ''}</td>
+          </tr>`).join('')}
+        </tbody></table></div>`;
+  }
+  html += `<p class="hint" style="margin-top:14px">카드에 보일 메모</p>
+    <textarea id="memo" placeholder="예: 10월 둘째 주 대규모 유출 — 기관 매수 추정"></textarea>`;
+  box.innerHTML = html;
+  $('memo').value = noteOf(c.id, def.key);
+
+  // 버튼과 입력칸 동작 연결
+  const refresh = () => { drawDetail(); drawEditArea(); drawPage(c); };
+  if (!def.calc) {
+    $('addBtn').onclick = () => {
+      const d = $('addDay').value, v = $('addVal').value;
+      if (!d || v === '') return alert('날짜와 값을 모두 넣어 주세요.');
+      setValue(c.id, def.key, d, parseFloat(v)); refresh();
+    };
+    box.querySelectorAll('input[data-day]').forEach(inp => inp.onchange = () => {
+      setValue(c.id, def.key, inp.dataset.day, inp.value === '' ? '' : parseFloat(inp.value)); refresh();
+    });
+    box.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => {
+      setValue(c.id, def.key, b.dataset.undo, ''); refresh();
+    });
+  }
+  $('memo').onchange = () => { setNote(c.id, def.key, $('memo').value); drawPage(c); };
+}
+
+/* =====================================================================
+   10) 버튼 연결
+   ===================================================================== */
+$('dClose').onclick = () => $('dlg').close();
+$('dlg').addEventListener('click', e => { if (e.target === $('dlg')) $('dlg').close(); });   // 바깥 누르면 닫기
 $('range').onclick = e => {
-  const r = e.target.dataset.r;
-  if (!r) return;
-  range = r;
+  if (!e.target.dataset.days) return;
+  days = Number(e.target.dataset.days);
   [...$('range').children].forEach(b => b.classList.toggle('on', b === e.target));
-  draw();
+  drawDetail();
 };
-$('showPrice').onchange = draw;
-$('logScale').onchange = () => {
-  const mode = $('logScale').checked ? 1 : 0;   // 1 = 로그, 0 = 일반
-  chart.applyOptions({ rightPriceScale: { mode }, leftPriceScale: { mode } });
+$('showPrice').onchange = drawDetail;
+$('logScale').onchange = drawDetail;
+
+$('editToggle').onclick = () => {
+  const on = document.body.classList.toggle('editing');
+  $('editToggle').textContent = on ? '✓ 편집 끝내기' : '✎ 데이터 편집';
 };
 
-draw();
+// 파일로 내보내기 → overrides.json 다운로드
+$('exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify(OV, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'overrides.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+// 파일 불러오기
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = async () => {
+  const f = $('importFile').files[0];
+  if (!f) return;
+  try { OV = tidy(JSON.parse(await f.text())); saveLocal(); drawPage(currentCoin()); }
+  catch { alert('파일을 읽지 못했어요. overrides.json 파일이 맞는지 확인해 주세요.'); }
+  $('importFile').value = '';
+};
+// 이 브라우저에서 고친 것 버리고 GitHub에 올린 버전으로
+$('resetBtn').onclick = () => {
+  if (!confirm('이 브라우저에서 고친 내용을 모두 지우고, GitHub에 올라가 있는 버전으로 되돌릴까요?')) return;
+  try { localStorage.removeItem(LS_KEY); } catch {}
+  OV = JSON.parse(JSON.stringify(PUBLISHED));
+  updateEditCount();
+  drawPage(currentCoin());
+};
+
+window.addEventListener('hashchange', renderCoin);
+
+// 시작!
+loadOverrides().then(() => { updateEditCount(); renderCoin(); });
 </script>
 </body>
 </html>
