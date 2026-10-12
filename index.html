@@ -350,7 +350,7 @@
 
 <header>
   <a class="brand" href="#">Chain<span>Lens</span></a>
-  <button class="hlock" id="lockBtn" title="차트 잠그기 (단축키 F5)"></button>
+  <button class="hlock" id="lockBtn" title="차트 잠그기 (단축키 F6)"></button>
   <span class="spacer"></span>
   <button id="editToggle">✎ 데이터 편집</button>
 </header>
@@ -581,7 +581,7 @@ async function fetchCoin(c) {
    - { values: { btc: { PriceUSD: { '2026-10-11': 82000 } } }, notes: { btc: { CapMVRVCur: '메모' } } }
    ===================================================================== */
 const LS_KEY = 'chainlens-overrides', FAV_KEY = 'chainlens-favs', LOCK_KEY = 'chainlens-lock';
-let LOCKED = false;   // 차트 잠금 상태 (F5로 켜고 끄기, 새로고침해도 유지)
+let LOCKED = false;   // 차트 잠금 상태 (F6으로 켜고 끄기, 새로고침해도 유지)
 try { LOCKED = localStorage.getItem(LOCK_KEY) === '1'; } catch {}
 let PUBLISHED = { values: {}, notes: {} };
 let OV = { values: {}, notes: {} };
@@ -1187,7 +1187,8 @@ let chartData = [], mainSeries = null, navSync = null, navObserver = null, dateO
 
 function drawChart(c, def, daily, S) {
   const candle = S.chartStyle === 'candle';
-  const canDrag = candle && S.window === 'DAY' && !def.calc && !LOCKED;   // 잠겨 있으면 막대를 끌 수 없어요
+  const editable = candle && S.window === 'DAY' && !def.calc;   // 봉 모양 (잠겨도 차트 모양은 똑같이)
+  const canDrag = editable && !LOCKED;                          // 잠겨 있으면 막대를 끌 수만 없어요
 
   // 눈금에 쓰는 짧은 숫자 (90T, $1.5B …)
   const compact = a => a >= 1e12 ? +(a / 1e12).toFixed(1) + 'T' : a >= 1e9 ? +(a / 1e9).toFixed(1) + 'B'
@@ -1216,8 +1217,8 @@ function drawChart(c, def, daily, S) {
     localization: { timeFormatter: t => dayOf(t) },
     watermark: { visible: true, text: 'ChainLens', color: 'rgba(23,23,28,0.045)', fontSize: 56 },
     crosshair: { mode: 0 },
-    handleScroll: canDrag ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false } : true,
-    handleScale: { axisPressedMouseMove: !canDrag, mouseWheel: true, pinch: true },
+    handleScroll: editable ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false } : true,
+    handleScale: { axisPressedMouseMove: !editable, mouseWheel: true, pinch: true },
   });
 
   // 1) 일 → 주/월로 묶기
@@ -1225,21 +1226,21 @@ function drawChart(c, def, daily, S) {
   chartData = full.map(p => ({ ...p }));
   // 일 단위: 값이 없는 날도 칸을 만들어서 날짜 눈금이 빠짐없이 고르게 나오게
   // (봉 모드에선 높이 0인 빈 막대 → 끌어 올려서 채울 수 있어요. 최소 최근 1년은 칸을 만들어 둬요)
-  if (S.window === 'DAY' && (canDrag || full.length)) {
+  if (S.window === 'DAY' && (editable || full.length)) {
     const priceDays = toArr(baseMap(c.id, 'PriceUSD')).map(p => p.time);
     const yesterday = lastNDays(1)[0];
     const end = [full.length ? full[full.length - 1].time : '', priceDays[priceDays.length - 1] || yesterday].sort().pop();
     const d = new Date(end + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() - 364);
     const yearAgo = d.toISOString().slice(0, 10);
-    const start = full.length ? (canDrag ? [full[0].time, yearAgo].sort()[0] : full[0].time) : yearAgo;
+    const start = full.length ? (editable ? [full[0].time, yearAgo].sort()[0] : full[0].time) : yearAgo;
     const have = new Map(full.map(p => [p.time, p.value]));
     chartData = [];
     for (const t = new Date(start + 'T00:00:00Z'); ; t.setUTCDate(t.getUTCDate() + 1)) {
       const day = t.toISOString().slice(0, 10);
       if (day > end) break;
       chartData.push(have.has(day) ? { time: day, value: have.get(day) }
-                    : canDrag ? { time: day, value: 0, ph: true }   // ph: 아직 빈 칸
+                    : editable ? { time: day, value: 0, ph: true }   // ph: 아직 빈 칸
                     : { time: day });
     }
   }
@@ -1315,11 +1316,18 @@ function drawChart(c, def, daily, S) {
 
   // 5) 처음 보여줄 기간
   const from = rangeStart(n ? chartData[n - 1].time : '', S.range);
-  if (!from) chart.timeScale().fitContent();
-  else {
-    const i = Math.max(0, chartData.findIndex(p => p.time >= from));
-    chart.timeScale().setVisibleLogicalRange({ from: i - 0.5, to: n - 0.5 + 1 });
-  }
+  const applyRange = () => {
+    if (!chart) return;
+    if (!from) chart.timeScale().fitContent();
+    else {
+      const i = Math.max(0, chartData.findIndex(p => p.time >= from));
+      chart.timeScale().setVisibleLogicalRange({ from: i - 0.5, to: n - 0.5 + 1 });
+    }
+  };
+  applyRange();
+  // 차트 크기가 정해진 뒤에 한 번 더 (처음엔 크기가 0이라 기간이 무시될 수 있어요)
+  const myChart = chart;
+  setTimeout(() => { if (chart === myChart) applyRange(); }, 60);
 
   $('legend').innerHTML = [
     withPrice ? `<span><i class="lg-line" style="background:var(--priceline)"></i>가격(USD)</span>` : '',
@@ -1593,7 +1601,7 @@ function drawEditArea(c, def) {
   }
   html += `<h5>표에 보일 메모</h5>
     <textarea id="memo" placeholder="예: 10월 둘째 주 대규모 출금 — 기관 매수 추정"></textarea>`;
-  if (LOCKED) html = `<div class="locknote">🔒 차트가 잠겨 있어서 값을 바꿀 수 없어요. <b>F5</b>를 누르거나 차트 오른쪽 위 🔒를 누르면 풀려요.</div>` + html;
+  if (LOCKED) html = `<div class="locknote">🔒 차트가 잠겨 있어서 값을 바꿀 수 없어요. <b>F6</b>을 누르거나 왼쪽 위 🔒 잠김 버튼을 누르면 풀려요.</div>` + html;
   box.innerHTML = html;
   $('memo').value = noteOf(c.id, def.key);
   $('memo').onchange = () => setNote(c.id, def.key, $('memo').value);
@@ -1637,13 +1645,13 @@ $('editToggle').onclick = () => {
 };
 $('search').oninput = drawSide;
 
-/* ----- 차트 잠금: F5(또는 🔒 버튼)로 켜고 끄기. 잠그면 막대를 만들거나 지울 수 없어요 ----- */
+/* ----- 차트 잠금: F6(또는 왼쪽 위 🔒 버튼)으로 켜고 끄기. 잠그면 막대를 만들거나 지울 수 없어요 ----- */
 // 왼쪽 위 사이트 이름 옆 자물쇠 버튼 모양 바꾸기
 function updateLockBtn() {
   const b = $('lockBtn');
   b.classList.toggle('on', LOCKED);
   b.innerHTML = (LOCKED ? ICONS.lock : ICONS.unlock) + `<span>${LOCKED ? '잠김' : '잠금'}</span>`;
-  b.title = (LOCKED ? '잠금 풀기' : '차트 잠그기') + ' (단축키 F5)';
+  b.title = (LOCKED ? '잠금 풀기' : '차트 잠그기') + ' (단축키 F6)';
 }
 updateLockBtn();
 function toggleLock() {
@@ -1651,11 +1659,11 @@ function toggleLock() {
   try { localStorage.setItem(LOCK_KEY, LOCKED ? '1' : '0'); } catch {}
   updateLockBtn();
   rerender();
-  toast(LOCKED ? '🔒 차트를 잠갔어요 — 다시 F5를 누르면 풀려요' : '🔓 잠금을 풀었어요 — 막대를 다시 고칠 수 있어요');
+  toast(LOCKED ? '🔒 차트를 잠갔어요 — 다시 F6을 누르면 풀려요' : '🔓 잠금을 풀었어요 — 막대를 다시 고칠 수 있어요');
 }
 document.addEventListener('keydown', e => {
-  // 지표 차트 화면에서만 F5 = 잠금 (원래 F5의 '새로고침'은 막아요. Ctrl+F5는 그대로 새로고침)
-  if (e.key === 'F5' && !e.ctrlKey && !e.metaKey && route().def) {
+  // 지표 차트 화면에서 F6 = 잠금 켜고 끄기 (F5 새로고침은 원래대로)
+  if (e.key === 'F6' && !e.ctrlKey && !e.metaKey && route().def) {
     e.preventDefault();
     toggleLock();
   }
