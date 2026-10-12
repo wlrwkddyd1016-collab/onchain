@@ -1235,8 +1235,8 @@ function drawChart(c, def, daily, S) {
   // (봉 모드에선 높이 0인 빈 막대 → 끌어 올려서 채울 수 있어요. 최소 최근 1년은 칸을 만들어 둬요)
   if (S.window === 'DAY' && (editable || full.length)) {
     const priceDays = toArr(baseMap(c.id, 'PriceUSD')).map(p => p.time);
-    const yesterday = lastNDays(1)[0];
-    const end = [full.length ? full[full.length - 1].time : '', priceDays[priceDays.length - 1] || yesterday].sort().pop();
+    const today = new Date().toISOString().slice(0, 10);   // 오늘 날짜(UTC)까지 칸을 만들어요
+    const end = [full.length ? full[full.length - 1].time : '', priceDays[priceDays.length - 1] || '', today].sort().pop();
     const d = new Date(end + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() - 364);
     const yearAgo = d.toISOString().slice(0, 10);
