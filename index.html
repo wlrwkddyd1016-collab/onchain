@@ -61,6 +61,23 @@
   }
   .coins a.on { color: var(--text); border-bottom-color: var(--text); }
   .coins img, .coin-dot { width: 18px; height: 18px; border-radius: 50%; display: inline-block; background: var(--soft); }
+  .allbtn { flex: none; background: none; border: 0; color: var(--text); font-size: 13px; font-weight: 600;
+            padding: 12px 10px 10px; cursor: pointer; white-space: nowrap; }
+  .allbtn span { font-size: 10px; color: var(--muted); margin-left: 2px; }
+  .allbtn:hover { color: var(--brand); }
+  .allpanel { position: fixed; z-index: 50; width: 320px; max-width: calc(100vw - 16px); background: var(--bg);
+              border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.14); padding: 10px; }
+  .allpanel input { width: 100%; margin-bottom: 8px; }
+  .alllist { max-height: 360px; overflow-y: auto; }
+  .alllist a { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; text-decoration: none; font-size: 13px; }
+  .alllist a:hover { background: var(--soft); }
+  .alllist a.on { background: var(--brand-soft); }
+  .alllist img, .alllist .coin-dot { width: 22px; height: 22px; border-radius: 50%; flex: none; }
+  .alllist .nm { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .alllist .nm small { color: var(--muted); font-size: 11px; }
+  .alllist .px { font-weight: 600; }
+  .alllist .ch { width: 62px; text-align: right; font-size: 12px; }
+  .alllist .none { color: var(--muted); font-size: 13px; padding: 12px; text-align: center; }
 
   /* ===== 전체 배치: 왼쪽 메뉴 + 본문 ===== */
   .shell { display: grid; grid-template-columns: 270px minmax(0, 1fr); }
@@ -298,6 +315,12 @@
 
 <nav class="coins" id="coins"></nav>
 
+<!-- '모든 자산' 펼침 목록 -->
+<div class="allpanel" id="allPanel" hidden>
+  <input id="allSearch" placeholder="코인 이름이나 기호 검색 (예: 도지, ADA)">
+  <div class="alllist" id="allList"></div>
+</div>
+
 <div class="shell">
   <!-- 왼쪽 지표 메뉴 -->
   <aside id="side">
@@ -349,6 +372,7 @@ const COINS = [
   { id: 'eth',  cg: 'ethereum',     name: '이더리움',     sym: 'ETH',  m: [...COMMON, ...FLOWS, 'FeeTotNtv', 'IssTotUSD'] },
   { id: 'xrp',  cg: 'ripple',       name: '리플',         sym: 'XRP',  m: [...COMMON, 'FeeTotNtv'] },
   { id: 'usdt', cg: 'tether',       name: '테더',         sym: 'USDT', m: [...COMMON] },
+  { id: 'usdc', cg: 'usd-coin',     name: 'USD 코인',     sym: 'USDC', m: [...COMMON, 'IssTotUSD'] },
   { id: 'shib', cg: 'shiba-inu',    name: '시바이누',     sym: 'SHIB', m: ['PriceUSD'] },
   { id: 'doge', cg: 'dogecoin',     name: '도지코인',     sym: 'DOGE', m: [...COMMON, 'FeeTotNtv', 'HashRate', 'IssTotUSD'] },
   { id: 'ada',  cg: 'cardano',      name: '에이다',       sym: 'ADA',  m: [...COMMON, 'FeeTotNtv', 'IssTotUSD'] },
@@ -708,12 +732,47 @@ const link = (c, cat, key) => '#' + [c.id, cat, key].filter(Boolean).join('/');
 const icon = c => MARKET[c.cg] && MARKET[c.cg].image ? `<img src="${MARKET[c.cg].image}" alt="">` : `<span class="coin-dot"></span>`;
 
 /* ----- 코인 탭 (코인을 바꿔도 보고 있던 지표·차트 설정은 그대로) ----- */
-function drawTabs() {
-  const { c } = route();
+const TAB_COUNT = 6;   // 위쪽 탭에 바로 보이는 코인 수 (나머지는 '모든 자산'에서)
+const coinHref = x => {
   const hash = location.hash.slice(1);
   const rest = hash.includes('/') ? hash.slice(hash.indexOf('/')) : hash.includes('?') ? hash.slice(hash.indexOf('?')) : '';
-  $('coins').innerHTML = COINS.map(x =>
-    `<a href="#${x.id}${rest}" class="${x === c ? 'on' : ''}">${icon(x)}${x.sym}</a>`).join('');
+  return `#${x.id}${rest}`;
+};
+function drawTabs() {
+  const { c } = route();
+  const tabs = COINS.slice(0, TAB_COUNT);
+  if (!tabs.includes(c)) tabs.push(c);   // 지금 보는 코인이 뒤쪽 코인이면 탭에 잠깐 같이 보여줘요
+  $('coins').innerHTML = tabs.map(x =>
+    `<a href="${coinHref(x)}" class="${x === c ? 'on' : ''}">${icon(x)}${x.sym}</a>`).join('') +
+    `<button class="allbtn" id="allBtn">모든 자산 <span>▾</span></button>`;
+  $('allBtn').onclick = e => { e.stopPropagation(); $('allPanel').hidden ? openAll() : closeAll(); };
+}
+
+/* ----- '모든 자산' 펼침 목록 ----- */
+function openAll() {
+  const p = $('allPanel'), b = $('allBtn').getBoundingClientRect();
+  p.hidden = false;
+  p.style.top = (b.bottom + 6) + 'px';
+  p.style.left = Math.max(8, Math.min(b.left, innerWidth - p.offsetWidth - 8)) + 'px';
+  $('allSearch').value = '';
+  drawAll();
+  $('allSearch').focus();
+}
+const closeAll = () => { $('allPanel').hidden = true; };
+function drawAll() {
+  const q = $('allSearch').value.trim().toLowerCase();
+  const { c } = route();
+  const list = COINS.filter(x => !q || x.name.includes(q) || x.sym.toLowerCase().includes(q) || x.cg.includes(q));
+  $('allList').innerHTML = list.map(x => {
+    const m = MARKET[x.cg] || {}, ch = m.price_change_percentage_24h_in_currency;
+    return `<a href="${coinHref(x)}" class="${x === c ? 'on' : ''}">
+      ${icon(x)}
+      <span class="nm"><b>${x.sym}</b><small>${x.name}</small></span>
+      <span class="px num">${m.current_price != null ? fullUsd(m.current_price) : ''}</span>
+      <span class="ch num ${pctCls(ch)}">${ch != null ? pctTxt(ch) : ''}</span>
+    </a>`;
+  }).join('') || '<div class="none">찾는 코인이 없어요</div>';
+  $('allList').querySelectorAll('a').forEach(a => a.onclick = closeAll);
 }
 
 /* ----- 왼쪽 메뉴 ----- */
@@ -1043,10 +1102,25 @@ function drawChart(c, def, daily, S) {
   // 1) 일 → 주/월로 묶기
   const full = aggregate(daily, S.window, def.agg);
   chartData = full.map(p => ({ ...p }));
-  // 봉 모드에서 데이터가 하나도 없으면, 가격이 있는 날짜(없으면 최근 1년)로 빈 칸을 만들어 끌어서 채울 수 있게
-  if (canDrag && !chartData.length) {
-    const days = toArr(baseMap(c.id, 'PriceUSD')).map(p => p.time).slice(-365);
-    chartData = (days.length ? days : lastNDays(365)).map(time => ({ time, value: 0, ph: true }));   // ph: 아직 빈 칸
+  // 일 단위: 값이 없는 날도 칸을 만들어서 날짜 눈금이 빠짐없이 고르게 나오게
+  // (봉 모드에선 높이 0인 빈 막대 → 끌어 올려서 채울 수 있어요. 최소 최근 1년은 칸을 만들어 둬요)
+  if (S.window === 'DAY' && (canDrag || full.length)) {
+    const priceDays = toArr(baseMap(c.id, 'PriceUSD')).map(p => p.time);
+    const yesterday = lastNDays(1)[0];
+    const end = [full.length ? full[full.length - 1].time : '', priceDays[priceDays.length - 1] || yesterday].sort().pop();
+    const d = new Date(end + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - 364);
+    const yearAgo = d.toISOString().slice(0, 10);
+    const start = full.length ? (canDrag ? [full[0].time, yearAgo].sort()[0] : full[0].time) : yearAgo;
+    const have = new Map(full.map(p => [p.time, p.value]));
+    chartData = [];
+    for (const t = new Date(start + 'T00:00:00Z'); ; t.setUTCDate(t.getUTCDate() + 1)) {
+      const day = t.toISOString().slice(0, 10);
+      if (day > end) break;
+      chartData.push(have.has(day) ? { time: day, value: have.get(day) }
+                    : canDrag ? { time: day, value: 0, ph: true }   // ph: 아직 빈 칸
+                    : { time: day });
+    }
   }
   const n = chartData.length;
   const hasValue = chartData.some(p => p.value != null && !p.ph);
@@ -1083,10 +1157,10 @@ function drawChart(c, def, daily, S) {
   } else if (S.chartStyle === 'area') {
     mainSeries = chart.addAreaSeries({ priceScaleId: 'left', priceFormat: pf(axis), lineColor: cssVar('--bar'), lineWidth: 2,
                                        topColor: 'rgba(19,162,107,.28)', bottomColor: 'rgba(19,162,107,0)' });
-    mainSeries.setData(full);
+    mainSeries.setData(chartData.map(p => p.value == null ? { time: p.time } : { time: p.time, value: p.value }));
   } else {
     mainSeries = chart.addLineSeries({ priceScaleId: 'left', priceFormat: pf(axis), color: cssVar('--bar'), lineWidth: 2 });
-    mainSeries.setData(full);
+    mainSeries.setData(chartData.map(p => p.value == null ? { time: p.time } : { time: p.time, value: p.value }));
   }
   // 원본 값을 고친 날짜에 점 찍기 (일 단위, 봉 모드가 아닐 때)
   if (S.window === 'DAY' && !candle) {
@@ -1379,6 +1453,10 @@ $('editToggle').onclick = () => {
   $('editToggle').textContent = on ? '✓ 편집 끝내기' : '✎ 데이터 편집';
 };
 $('search').oninput = drawSide;
+$('allSearch').oninput = drawAll;
+document.addEventListener('click', e => { if (!$('allPanel').hidden && !$('allPanel').contains(e.target)) closeAll(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+window.addEventListener('resize', closeAll);
 $('sideClose').onclick = () => {
   if (matchMedia('(max-width: 960px)').matches) document.body.classList.remove('side-open');
   else document.body.classList.add('side-closed');
