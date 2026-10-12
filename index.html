@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>체인렌즈 · 비트코인 온체인 지표</title>
+
+<!-- 차트 그리는 도구 (TradingView에서 무료로 공개한 라이브러리) -->
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+
+<style>
+  /* ===== 색상표: 여기 숫자만 바꾸면 사이트 전체 색이 바뀌어요 ===== */
+  :root {
+    --bg: #0d1117;        /* 배경 */
+    --panel: #161b22;     /* 카드/메뉴 배경 */
+    --line: #262d38;      /* 테두리 */
+    --text: #e6edf3;      /* 글자 */
+    --muted: #8b949e;     /* 흐린 글자 */
+    --accent: #3fb68b;    /* 강조색 (초록) */
+    --price: #f2a93b;     /* 가격선 (주황) */
+    --down: #f0616d;      /* 하락 (빨강) */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  }
+
+  /* ===== 맨 위 막대 ===== */
+  header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px; border-bottom: 1px solid var(--line);
+  }
+  .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent);
+          display: grid; place-items: center; color: var(--bg); font-weight: 800; }
+  header h1 { font-size: 17px; margin: 0; }
+  header span { color: var(--muted); font-size: 13px; }
+
+  /* ===== 전체 배치: 왼쪽 메뉴 + 오른쪽 본문 ===== */
+  .layout { display: grid; grid-template-columns: 230px 1fr; min-height: calc(100vh - 55px); }
+
+  nav { border-right: 1px solid var(--line); padding: 14px 10px; }
+  nav h3 { font-size: 11px; color: var(--muted); letter-spacing: .08em;
+           margin: 16px 10px 6px; text-transform: uppercase; }
+  nav button {
+    display: block; width: 100%; text-align: left; padding: 9px 10px;
+    border: 0; border-radius: 8px; background: none; color: var(--text);
+    font: inherit; font-size: 14px; cursor: pointer;
+  }
+  nav button:hover { background: var(--panel); }
+  nav button.on { background: var(--panel); color: var(--accent); font-weight: 600; }
+
+  main { padding: 22px 26px; min-width: 0; }
+  main h2 { margin: 0 0 6px; font-size: 22px; }
+  .desc { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 18px; max-width: 760px; }
+
+  /* ===== 숫자 카드 ===== */
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card small { color: var(--muted); font-size: 12px; }
+  .card b { display: block; font-size: 20px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .up { color: var(--accent); } .dn { color: var(--down); }
+
+  /* ===== 차트 위 버튼들 ===== */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+  .seg button { border: 0; background: none; color: var(--muted); padding: 5px 11px;
+                border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer; }
+  .seg button.on { background: var(--line); color: var(--text); }
+  label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 5px; align-items: center; cursor: pointer; }
+
+  .chartbox { position: relative; background: var(--panel); border: 1px solid var(--line);
+              border-radius: 10px; height: 460px; }
+  #chart { position: absolute; inset: 0; }
+  #msg { position: absolute; inset: 0; display: grid; place-items: center;
+         color: var(--muted); font-size: 14px; pointer-events: none; text-align: center; padding: 20px; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 5px; }
+  footer { color: var(--muted); font-size: 12px; margin-top: 20px; }
+  footer a { color: var(--muted); }
+
+  /* ===== 휴대폰 화면 ===== */
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { border-right: 0; border-bottom: 1px solid var(--line); display: flex;
+          overflow-x: auto; gap: 4px; padding: 8px 16px; }
+    nav h3 { display: none; }
+    nav button { white-space: nowrap; width: auto; }
+    main { padding: 18px 16px; }
+    .cards { grid-template-columns: 1fr 1fr; }
+    .chartbox { height: 340px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">◎</div>
+  <h1>체인렌즈</h1>
+  <span>비트코인 온체인 지표</span>
+</header>
+
+<div class="layout">
+  <nav id="menu"></nav>
+
+  <main>
+    <h2 id="title">불러오는 중…</h2>
+    <p class="desc" id="desc"></p>
+
+    <div class="cards">
+      <div class="card"><small>최신 값</small><b id="cLast">–</b></div>
+      <div class="card"><small>기간 내 변화</small><b id="cChg">–</b></div>
+      <div class="card"><small>기간 내 최고</small><b id="cHigh">–</b></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="seg" id="range">
+        <button data-r="30days">1개월</button>
+        <button data-r="90days">3개월</button>
+        <button data-r="1year" class="on">1년</button>
+        <button data-r="3years">3년</button>
+        <button data-r="all">전체</button>
+      </div>
+      <label class="chk"><input type="checkbox" id="showPrice" checked> 가격 겹쳐 보기</label>
+      <label class="chk"><input type="checkbox" id="logScale"> 로그 스케일</label>
+    </div>
+
+    <div class="chartbox">
+      <div id="chart"></div>
+      <div id="msg"></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i><span id="lgName">지표</span></span>
+      <span id="lgPrice"><i style="background:var(--price)"></i>BTC 가격 (USD)</span>
+    </div>
+
+    <footer>
+      데이터: <a href="https://www.blockchain.com/explorer/charts" target="_blank" rel="noopener">Blockchain.com 공개 API</a> ·
+      학습용 프로젝트이며 투자 조언이 아닙니다.
+    </footer>
+  </main>
+</div>
+
+<script>
+/* =====================================================================
+   1) 지표 목록
+   - 여기 한 줄을 추가하면 왼쪽 메뉴에 지표가 하나 더 생겨요.
+   - id: Blockchain.com 데이터 이름
+   - scale: 화면에 보여줄 때 나눌 숫자 (예: 해시레이트를 EH/s로)
+   ===================================================================== */
+const METRICS = [
+  { group: '시장', id: 'market-price', name: '비트코인 가격', unit: 'USD', money: true,
+    desc: '거래소들의 평균 비트코인 가격이에요. 다른 지표를 볼 때 기준이 되는 값이에요.' },
+  { group: '시장', id: 'market-cap', name: '시가총액', unit: 'USD', money: true,
+    desc: '가격 × 발행된 비트코인 수. 비트코인 전체의 "몸값"이에요.' },
+
+  { group: '가치평가', id: 'nvt', name: 'NVT 비율', unit: '', derived: true,
+    desc: '시가총액 ÷ 하루 온체인 거래액. 주식의 PER과 비슷한 개념이에요. 높으면 실제 사용량에 비해 가격이 비싸다는 신호로, 낮으면 저평가 신호로 보기도 해요.' },
+
+  { group: '네트워크', id: 'hash-rate', name: '해시레이트', unit: 'EH/s', scale: 1e6,
+    desc: '전 세계 채굴기가 쓰는 계산 능력의 합이에요. 높을수록 네트워크가 안전하고, 채굴자들이 미래를 낙관한다는 뜻으로 해석돼요.' },
+  { group: '네트워크', id: 'difficulty', name: '채굴 난이도', unit: 'T', scale: 1e12,
+    desc: '블록 하나를 찾는 데 필요한 난이도. 약 2주마다 해시레이트에 맞춰 자동으로 조절돼요.' },
+
+  { group: '활동', id: 'n-transactions', name: '일일 거래 수', unit: '건',
+    desc: '하루 동안 블록체인에 기록된 거래 개수. 네트워크가 얼마나 많이 쓰이는지 보여줘요.' },
+  { group: '활동', id: 'n-unique-addresses', name: '활성 주소 수', unit: '개',
+    desc: '하루 동안 거래에 참여한 고유 주소 수. 사용자 활동의 대략적인 크기를 보여줘요.' },
+  { group: '활동', id: 'estimated-transaction-volume-usd', name: '온체인 거래액', unit: 'USD', money: true,
+    desc: '하루 동안 블록체인 위에서 실제로 옮겨진 비트코인의 달러 가치(추정치)예요.' },
+
+  { group: '채굴', id: 'miners-revenue', name: '채굴자 수익', unit: 'USD', money: true,
+    desc: '블록 보상 + 수수료로 채굴자가 하루에 버는 돈. 수익이 줄면 채굴자들이 비트코인을 팔 압력이 생길 수 있어요.' },
+  { group: '채굴', id: 'transaction-fees-usd', name: '거래 수수료 합계', unit: 'USD', money: true,
+    desc: '하루 동안 사용자들이 낸 수수료 총액. 네트워크가 붐빌수록 올라가요.' },
+];
+
+/* =====================================================================
+   2) 데이터 가져오기
+   ===================================================================== */
+const cache = {};
+async function load(id, range) {
+  const key = id + range;
+  if (cache[key]) return cache[key];
+  const url = `https://api.blockchain.info/charts/${id}?timespan=${range}&format=json&cors=true&sampled=false`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(id + ' 데이터를 못 가져왔어요 (' + res.status + ')');
+  const json = await res.json();
+  // 하루에 값 하나만 남기고 날짜 순으로 정리 (차트가 요구하는 형식)
+  const byDay = new Map();
+  for (const p of json.values) byDay.set(Math.floor(p.x / 86400) * 86400, p.y);
+  const rows = [...byDay].sort((a, b) => a[0] - b[0]).map(([time, value]) => ({ time, value }));
+  return (cache[key] = rows);
+}
+
+// NVT = 시가총액 ÷ 온체인 거래액 (같은 날짜끼리 나눔)
+async function loadNVT(range) {
+  const [cap, vol] = await Promise.all([
+    load('market-cap', range), load('estimated-transaction-volume-usd', range),
+  ]);
+  const volMap = new Map(vol.map(r => [r.time, r.value]));
+  return cap.filter(r => volMap.get(r.time) > 0)
+            .map(r => ({ time: r.time, value: r.value / volMap.get(r.time) }));
+}
+
+/* =====================================================================
+   3) 숫자 보기 좋게 바꾸기  (1234567 → 1.23M)
+   ===================================================================== */
+function fmt(v, m) {
+  if (v == null || isNaN(v)) return '–';
+  const a = Math.abs(v);
+  let s = a >= 1e12 ? (v / 1e12).toFixed(2) + 'T'
+        : a >= 1e9  ? (v / 1e9).toFixed(2) + 'B'
+        : a >= 1e6  ? (v / 1e6).toFixed(2) + 'M'
+        : a >= 1e4  ? Math.round(v).toLocaleString('en-US')
+        : v.toFixed(2);
+  if (m && m.money) return '$' + s;
+  return m && m.unit ? s + ' ' + m.unit : s;
+}
+
+/* =====================================================================
+   4) 차트 만들기
+   ===================================================================== */
+const css = getComputedStyle(document.documentElement);
+const C = n => css.getPropertyValue(n).trim();
+
+const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+  autoSize: true,
+  layout: { background: { color: 'transparent' }, textColor: C('--muted'), fontSize: 12 },
+  grid: { vertLines: { color: C('--line') }, horzLines: { color: C('--line') } },
+  rightPriceScale: { borderColor: C('--line') },
+  leftPriceScale: { borderColor: C('--line'), visible: true },
+  timeScale: { borderColor: C('--line') },
+  crosshair: { mode: 0 },
+});
+const metricSeries = chart.addAreaSeries({
+  priceScaleId: 'right', lineColor: C('--accent'), lineWidth: 2,
+  topColor: 'rgba(63,182,139,.35)', bottomColor: 'rgba(63,182,139,0)',
+  priceFormat: { type: 'custom', formatter: v => fmt(v) },
+});
+const priceSeries = chart.addLineSeries({
+  priceScaleId: 'left', color: C('--price'), lineWidth: 1.5,
+  priceFormat: { type: 'custom', formatter: v => '$' + fmt(v) },
+});
+
+/* =====================================================================
+   5) 화면 상태와 그리기
+   ===================================================================== */
+let current = METRICS[3];   // 처음 보여줄 지표 (해시레이트)
+let range = '1year';
+const $ = id => document.getElementById(id);
+
+// 왼쪽 메뉴 만들기
+let lastGroup = '';
+for (const m of METRICS) {
+  if (m.group !== lastGroup) {
+    $('menu').insertAdjacentHTML('beforeend', `<h3>${m.group}</h3>`);
+    lastGroup = m.group;
+  }
+  const b = document.createElement('button');
+  b.textContent = m.name;
+  b.onclick = () => { current = m; draw(); };
+  m.btn = b;
+  $('menu').appendChild(b);
+}
+
+async function draw() {
+  METRICS.forEach(m => m.btn.classList.toggle('on', m === current));
+  $('title').textContent = current.name;
+  $('desc').textContent = current.desc;
+  $('lgName').textContent = current.name + (current.unit ? ` (${current.unit})` : '');
+  $('msg').textContent = '데이터 불러오는 중…';
+
+  const mine = current;
+  try {
+    const [raw, price] = await Promise.all([
+      current.derived ? loadNVT(range) : load(current.id, range),
+      load('market-price', range),
+    ]);
+    if (mine !== current) return;   // 그사이 다른 메뉴를 눌렀으면 무시
+    const k = current.scale || 1;
+    const data = raw.map(r => ({ time: r.time, value: r.value / k }));
+
+    metricSeries.setData(data);
+    metricSeries.applyOptions({ priceFormat: { type: 'custom', formatter: v => fmt(v, current) } });
+
+    const showPrice = $('showPrice').checked && current.id !== 'market-price';
+    priceSeries.setData(showPrice ? price : []);
+    chart.applyOptions({ leftPriceScale: { visible: showPrice } });
+    $('lgPrice').style.display = showPrice ? '' : 'none';
+    chart.timeScale().fitContent();
+
+    // 숫자 카드 채우기
+    const first = data[0]?.value, last = data[data.length - 1]?.value;
+    const chg = (last - first) / first * 100;
+    $('cLast').textContent = fmt(last, current);
+    $('cChg').textContent = isFinite(chg) ? (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%' : '–';
+    $('cChg').className = chg >= 0 ? 'up' : 'dn';
+    $('cHigh').textContent = fmt(Math.max(...data.map(d => d.value)), current);
+    $('msg').textContent = data.length ? '' : '이 기간에는 데이터가 없어요.';
+  } catch (e) {
+    $('msg').textContent = '데이터를 불러오지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 시도해 주세요.\n' + e.message;
+  }
+}
+
+// 기간 버튼
+$('range').onclick = e => {
+  const r = e.target.dataset.r;
+  if (!r) return;
+  range = r;
+  [...$('range').children].forEach(b => b.classList.toggle('on', b === e.target));
+  draw();
+};
+$('showPrice').onchange = draw;
+$('logScale').onchange = () => {
+  const mode = $('logScale').checked ? 1 : 0;   // 1 = 로그, 0 = 일반
+  chart.applyOptions({ rightPriceScale: { mode }, leftPriceScale: { mode } });
+};
+
+draw();
+</script>
+</body>
+</html>
