@@ -261,6 +261,33 @@
   .navwin .h[data-h="l"] { left: -5px; }
   .navwin .h[data-h="r"] { right: -5px; }
 
+  /* 차트 잠금 */
+  .lockbadge { font-size: 12px; font-weight: 600; color: #a35f00; background: #fff1d9; border-radius: 6px; padding: 3px 8px; margin-left: 4px; white-space: nowrap; }
+  .iconbtn.locked { background: #fff1d9; }
+  .locknote { background: #fff1d9; color: #7a4700; border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+  .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 60; background: #17171c; color: #fff;
+           padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+
+  /* 차트 오른쪽 위 아이콘 줄 (사이사이 세로 줄) */
+  .cicons { gap: 0; align-items: center; }
+  .cicons .ic { background: none; border: 0; color: #55555f; cursor: pointer; padding: 4px 12px; display: grid; place-items: center; }
+  .cicons .ic + .ic { border-left: 1px solid var(--line); }
+  .cicons .ic:hover { color: var(--text); }
+  .cicons .ic.on { color: var(--star); }
+  .cicons .ic.on svg { fill: var(--star); }
+  /* 기간 버튼 + 달력 */
+  .rangewrap { position: relative; }
+  .range .cal { color: var(--brand); display: grid; place-items: center; padding: 3px 10px; }
+  .calpop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 6; background: var(--bg); border: 1px solid var(--line);
+            border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.12); padding: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+  .calpop[hidden] { display: none; }
+  /* 왼쪽 위 잠금 버튼 */
+  .hlock { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; border: 1px solid var(--line); background: var(--bg);
+           color: var(--muted); border-radius: 8px; padding: 4px 9px; font-size: 12px; cursor: pointer; }
+  .hlock svg { width: 15px; height: 15px; }
+  .hlock:hover { color: var(--text); }
+  .hlock.on { background: #fff1d9; border-color: #f3d79b; color: #a35f00; font-weight: 600; }
+
   .about { margin-top: 26px; }
   .about h3 { font-size: 16px; margin: 0 0 8px; }
   .about p { color: #4a4a57; font-size: 14px; line-height: 1.7; margin: 0; max-width: 860px; }
@@ -323,11 +350,15 @@
 
 <header>
   <a class="brand" href="#">Chain<span>Lens</span></a>
+  <button class="hlock" id="lockBtn" title="차트 잠그기 (단축키 F5)"></button>
   <span class="spacer"></span>
   <button id="editToggle">✎ 데이터 편집</button>
 </header>
 
 <nav class="coins" id="coins"></nav>
+
+<!-- 잠깐 떴다 사라지는 알림 -->
+<div class="toast" id="toast" hidden></div>
 
 <!-- '모든 자산' 펼침 목록 -->
 <div class="allpanel" id="allPanel" hidden>
@@ -549,7 +580,9 @@ async function fetchCoin(c) {
    4) 내가 고친 값 (overrides) · 즐겨찾기
    - { values: { btc: { PriceUSD: { '2026-10-11': 82000 } } }, notes: { btc: { CapMVRVCur: '메모' } } }
    ===================================================================== */
-const LS_KEY = 'chainlens-overrides', FAV_KEY = 'chainlens-favs';
+const LS_KEY = 'chainlens-overrides', FAV_KEY = 'chainlens-favs', LOCK_KEY = 'chainlens-lock';
+let LOCKED = false;   // 차트 잠금 상태 (F5로 켜고 끄기, 새로고침해도 유지)
+try { LOCKED = localStorage.getItem(LOCK_KEY) === '1'; } catch {}
 let PUBLISHED = { values: {}, notes: {} };
 let OV = { values: {}, notes: {} };
 let FAVS = [];
@@ -981,7 +1014,21 @@ const OPTS = {
   scale:      [['linear', '선형'], ['log', '로그']],
   chartStyle: [['column', '바'], ['candle', '봉'], ['line', '선'], ['area', '영역']],
 };
-const RANGES = [['1w', '1주'], ['1m', '1월'], ['3m', '3월'], ['1y', '1년'], ['ytd', 'YTD'], ['all', 'All']];
+// 차트 오른쪽 위 아이콘 (선으로 그린 그림)
+const svgIc = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ICONS = {
+  star:     svgIc('<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>'),
+  folder:   svgIc('<path d="M3.5 7.5a1.5 1.5 0 0 1 1.5-1.5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M12 11v5M9.5 13.5h5"/>'),
+  bell:     svgIc('<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>'),
+  share:    svgIc('<path d="M12 15V4.5M8 8.5l4-4 4 4"/><path d="M5 13.5v5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-5"/>'),
+  camera:   svgIc('<rect x="3.5" y="7" width="17" height="12" rx="2"/><path d="M8.5 7l1.5-2.5h4L15.5 7"/><circle cx="12" cy="13" r="3"/>'),
+  full:     svgIc('<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>'),
+  calendar: svgIc('<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>'),
+  lock:     svgIc('<rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+  unlock:   svgIc('<rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.7-1.5"/>'),
+};
+
+const RANGES = [['1d', '1일'], ['1w', '1주'], ['1m', '1월'], ['1y', '1년'], ['ytd', 'YTD'], ['all', 'All']];
 
 function chartSettings(def, opts) {
   const cat = CATS.find(k => k.id === def.cat);
@@ -989,7 +1036,7 @@ function chartSettings(def, opts) {
   return {
     window: pick('window', 'DAY'), sma: pick('sma', '0'), ema: pick('ema', '0'),
     scale: pick('scale', 'linear'), chartStyle: pick('chartStyle', cat.style),
-    range: RANGES.some(r => r[0] === opts.get('range')) ? opts.get('range') : '3m',
+    range: RANGES.some(r => r[0] === opts.get('range')) ? opts.get('range') : '1m',
   };
 }
 // 설정 하나를 바꾸면 주소를 바꾸고 → 화면이 다시 그려져요
@@ -1002,7 +1049,7 @@ function rangeStart(lastDay, range) {
   if (range === 'all' || !lastDay) return '';
   if (range === 'ytd') return lastDay.slice(0, 4) + '-01-01';
   const d = new Date(lastDay + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() - { '1w': 7, '1m': 30, '3m': 91, '1y': 365 }[range]);
+  d.setUTCDate(d.getUTCDate() - ({ '1d': 1, '1w': 7, '1m': 30, '1y': 365 }[range] || 30));
   return d.toISOString().slice(0, 10);
 }
 function lastNDays(n) {
@@ -1022,7 +1069,7 @@ function drawMetric(c, def) {
     <label class="ctl"><small>${label}</small>
       <select data-set="${k}">${OPTS[k].map(([v, t]) => `<option value="${v}" ${S[k] === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
     </label>`;
-  const title = `${c.name}: ${def.name}` + (def.cat === 'flows' ? ' - 전체 거래소' : '');
+  const title = `${c.name}: 온체인 데이터`;   // 차트 제목은 어떤 지표든 '온체인 데이터'로 고정
 
   $('page').innerHTML = `
     <div class="crumb"><a href="${link(c)}">${c.name}</a> › <a href="${link(c, cat.id)}">${cat.name}</a> › ${def.name}</div>
@@ -1030,10 +1077,12 @@ function drawMetric(c, def) {
       <div class="chead">
         <div class="ctitle">${icon(c)}<b>${title}</b></div>
         <div class="cicons">
-          <button class="starbtn ${FAVS.includes(def.key) ? 'on' : ''}" id="favBtn" title="즐겨찾기">★</button>
-          <button class="iconbtn" id="linkBtn" title="이 차트 주소 복사">🔗</button>
-          <button class="iconbtn" id="shotBtn" title="차트를 이미지로 저장">📷</button>
-          <button class="iconbtn" id="fullBtn" title="전체 화면">⛶</button>
+          <button class="ic ${FAVS.includes(def.key) ? 'on' : ''}" id="favBtn" title="즐겨찾기">${ICONS.star}</button>
+          <button class="ic" id="csvBtn2" title="이 차트 데이터를 파일(CSV)로 저장">${ICONS.folder}</button>
+          <button class="ic" id="bellBtn" title="알림">${ICONS.bell}</button>
+          <button class="ic" id="linkBtn" title="이 차트 주소 복사(공유)">${ICONS.share}</button>
+          <button class="ic" id="shotBtn" title="차트를 이미지로 저장">${ICONS.camera}</button>
+          <button class="ic" id="fullBtn" title="전체 화면">${ICONS.full}</button>
         </div>
       </div>
       <div class="cbody">
@@ -1048,7 +1097,14 @@ function drawMetric(c, def) {
             ${S.chartStyle === 'candle' ? `<label class="ctl"><small>눈금 최대</small>
               <input id="ymax" class="ymax" placeholder="자동 (예: 90T)" value="${(opts.get('ymax') || '').replace(/[^\w.]/g, '')}"></label>` : ''}
           </div>
-          <div class="range">${RANGES.map(([v, t]) => `<button data-range="${v}" class="${S.range === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+          <div class="rangewrap">
+            <div class="range">${RANGES.map(([v, t]) => `<button data-range="${v}" class="${S.range === v ? 'on' : ''}">${t}</button>`).join('')}<button id="calBtn" class="cal" title="날짜로 기간 고르기">${ICONS.calendar}</button></div>
+            <div class="calpop" id="calPop" hidden>
+              <label>시작 <input type="date" id="calFrom"></label>
+              <label>끝 <input type="date" id="calTo"></label>
+              <button class="btn primary" id="calApply">적용</button>
+            </div>
+          </div>
         </div>
         <div class="draghint" id="dragHint" hidden></div>
         <div class="legend" id="legend"></div>
@@ -1069,10 +1125,46 @@ function drawMetric(c, def) {
     </div>
     <div id="editArea"></div>`;
 
-  $('favBtn').onclick = () => { toggleFav(def.key); $('favBtn').classList.toggle('on'); drawSide(); };
+  $('favBtn').onclick = () => {
+    toggleFav(def.key); $('favBtn').classList.toggle('on'); drawSide();
+    toast(FAVS.includes(def.key) ? '☆ 즐겨찾기에 추가했어요' : '즐겨찾기에서 뺐어요');
+  };
   $('linkBtn').onclick = async () => {
-    try { await navigator.clipboard.writeText(location.href); $('linkBtn').textContent = '✓'; } catch {}
-    setTimeout(() => { if ($('linkBtn')) $('linkBtn').textContent = '🔗'; }, 1200);
+    try { await navigator.clipboard.writeText(location.href); toast('🔗 이 차트 주소를 복사했어요'); }
+    catch { toast('주소를 복사하지 못했어요'); }
+  };
+  $('bellBtn').onclick = () => toast('🔔 알림 기능은 아직 준비 중이에요');
+  // 지금 차트에 있는 값을 CSV 파일로 저장 (엑셀에서 열 수 있어요)
+  $('csvBtn2').onclick = () => {
+    const rows = chartData.filter(p => p.value != null && !p.ph).map(p => `${p.time},${p.value}`);
+    const blob = new Blob(['date,value\n' + rows.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${c.sym}-${def.key}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  // 달력: 시작~끝 날짜를 골라 그 기간만 보기
+  $('calBtn').onclick = e => {
+    e.stopPropagation();
+    const pop = $('calPop');
+    pop.hidden = !pop.hidden;
+    const r = chart && chart.timeScale().getVisibleLogicalRange();
+    if (r && chartData.length) {
+      $('calFrom').value = chartData[Math.max(0, Math.ceil(r.from))].time;
+      $('calTo').value = chartData[Math.min(chartData.length - 1, Math.floor(r.to))].time;
+    }
+  };
+  $('calApply').onclick = () => {
+    const a = $('calFrom').value, b = $('calTo').value;
+    if (!a || !b || !chartData.length) return;
+    let i = chartData.findIndex(p => p.time >= (a < b ? a : b));
+    let j = chartData.findIndex(p => p.time > (a < b ? b : a));
+    if (i < 0) i = chartData.length - 1;
+    if (j < 0) j = chartData.length;
+    chart.timeScale().setVisibleLogicalRange({ from: i - 0.5, to: j - 0.5 });
+    document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('on'));
+    $('calPop').hidden = true;
   };
   $('fullBtn').onclick = () => document.fullscreenElement ? document.exitFullscreen() : $('ccard').requestFullscreen();
   $('shotBtn').onclick = () => {
@@ -1095,7 +1187,7 @@ let chartData = [], mainSeries = null, navSync = null, navObserver = null, dateO
 
 function drawChart(c, def, daily, S) {
   const candle = S.chartStyle === 'candle';
-  const canDrag = candle && S.window === 'DAY' && !def.calc;
+  const canDrag = candle && S.window === 'DAY' && !def.calc && !LOCKED;   // 잠겨 있으면 막대를 끌 수 없어요
 
   // 눈금에 쓰는 짧은 숫자 (90T, $1.5B …)
   const compact = a => a >= 1e12 ? +(a / 1e12).toFixed(1) + 'T' : a >= 1e9 ? +(a / 1e9).toFixed(1) + 'B'
@@ -1501,9 +1593,14 @@ function drawEditArea(c, def) {
   }
   html += `<h5>표에 보일 메모</h5>
     <textarea id="memo" placeholder="예: 10월 둘째 주 대규모 출금 — 기관 매수 추정"></textarea>`;
+  if (LOCKED) html = `<div class="locknote">🔒 차트가 잠겨 있어서 값을 바꿀 수 없어요. <b>F5</b>를 누르거나 차트 오른쪽 위 🔒를 누르면 풀려요.</div>` + html;
   box.innerHTML = html;
   $('memo').value = noteOf(c.id, def.key);
   $('memo').onchange = () => setNote(c.id, def.key, $('memo').value);
+  if (LOCKED) {   // 잠겨 있으면 입력칸·버튼을 모두 막기
+    box.querySelectorAll('input, button, textarea').forEach(el => el.disabled = true);
+    return;
+  }
   if (def.calc) return;
 
   $('addBtn').onclick = () => {
@@ -1539,6 +1636,42 @@ $('editToggle').onclick = () => {
   $('editToggle').textContent = on ? '✓ 편집 끝내기' : '✎ 데이터 편집';
 };
 $('search').oninput = drawSide;
+
+/* ----- 차트 잠금: F5(또는 🔒 버튼)로 켜고 끄기. 잠그면 막대를 만들거나 지울 수 없어요 ----- */
+// 왼쪽 위 사이트 이름 옆 자물쇠 버튼 모양 바꾸기
+function updateLockBtn() {
+  const b = $('lockBtn');
+  b.classList.toggle('on', LOCKED);
+  b.innerHTML = (LOCKED ? ICONS.lock : ICONS.unlock) + `<span>${LOCKED ? '잠김' : '잠금'}</span>`;
+  b.title = (LOCKED ? '잠금 풀기' : '차트 잠그기') + ' (단축키 F5)';
+}
+updateLockBtn();
+function toggleLock() {
+  LOCKED = !LOCKED;
+  try { localStorage.setItem(LOCK_KEY, LOCKED ? '1' : '0'); } catch {}
+  updateLockBtn();
+  rerender();
+  toast(LOCKED ? '🔒 차트를 잠갔어요 — 다시 F5를 누르면 풀려요' : '🔓 잠금을 풀었어요 — 막대를 다시 고칠 수 있어요');
+}
+document.addEventListener('keydown', e => {
+  // 지표 차트 화면에서만 F5 = 잠금 (원래 F5의 '새로고침'은 막아요. Ctrl+F5는 그대로 새로고침)
+  if (e.key === 'F5' && !e.ctrlKey && !e.metaKey && route().def) {
+    e.preventDefault();
+    toggleLock();
+  }
+});
+document.addEventListener('click', e => {
+  if (e.target.closest('#lockBtn')) toggleLock();
+  const pop = $('calPop');   // 달력 바깥을 누르면 닫기
+  if (pop && !pop.hidden && !e.target.closest('.rangewrap')) pop.hidden = true;
+});
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.hidden = true, 2200);
+}
 $('allSearch').oninput = drawAll;
 document.addEventListener('click', e => { if (!$('allPanel').hidden && !$('allPanel').contains(e.target)) closeAll(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
