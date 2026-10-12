@@ -207,6 +207,29 @@
   .ccard:fullscreen { border-radius: 0; overflow: auto; }
   .ccard:fullscreen .chartbox { height: calc(100vh - 230px); }
 
+  /* 차트 카드 제목 · 위쪽 줄 */
+  .ctitle { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .ctitle img, .ctitle .coin-dot { width: 22px; height: 22px; flex: none; }
+  .ctop { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .ctop .controls { margin-bottom: 6px; }
+  .range button + button { border-left: 1px solid var(--line); border-radius: 0; }
+  .draghint { font-size: 12px; color: #4a3bc4; background: var(--brand-soft); border-radius: 7px;
+              padding: 7px 11px; margin: 8px 0 0; line-height: 1.5; }
+  .chartbox.dragmode { cursor: ns-resize; }
+  .ctl input.ymax { border: 0; background: transparent; padding: 2px 0; width: 104px; font-weight: 600; font-size: 13px; }
+  .chartbox.dragmode #chart { touch-action: none; }
+
+  /* 아래 미니 차트 (보이는 구간 조절) */
+  .navi { position: relative; height: 58px; margin-top: 6px; border: 1px solid var(--line); border-radius: 6px;
+          user-select: none; touch-action: none; cursor: pointer; overflow: hidden; }
+  #naviSvg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .navwin { position: absolute; top: 0; bottom: 0; background: rgba(90,72,224,.09);
+            border-left: 1px solid #a9a9b6; border-right: 1px solid #a9a9b6; cursor: grab; }
+  .navwin .h { position: absolute; top: 50%; width: 9px; height: 20px; margin-top: -10px; background: #fff;
+               border: 1px solid #8f8f9c; border-radius: 3px; cursor: ew-resize; }
+  .navwin .h[data-h="l"] { left: -5px; }
+  .navwin .h[data-h="r"] { right: -5px; }
+
   .about { margin-top: 26px; }
   .about h3 { font-size: 16px; margin: 0 0 8px; }
   .about p { color: #4a4a57; font-size: 14px; line-height: 1.7; margin: 0; max-width: 860px; }
@@ -863,16 +886,16 @@ function drawCategory(c, cat) {
 
 /* =====================================================================
    10) 지표 차트 페이지
-   - 차트 설정은 주소 ? 뒤에 저장돼요 (window, sma, ema, priceScale, metricScale, chartStyle, range)
+   - 차트 설정은 주소 ? 뒤에 저장돼요 (window, sma, ema, scale, chartStyle, range)
+   - 차트 스타일 '봉': 초록 막대만 남고, 막대를 마우스로 끌어서 길이(값)를 바꿀 수 있어요
    ===================================================================== */
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const OPTS = {
-  window:      [['DAY', '1일'], ['WEEK', '1주'], ['MONTH', '1달']],
-  sma:         [['0', '선택안함'], ['7', '7'], ['14', '14'], ['30', '30'], ['50', '50'], ['100', '100'], ['200', '200']],
-  ema:         [['0', '선택안함'], ['7', '7'], ['14', '14'], ['30', '30'], ['50', '50'], ['100', '100'], ['200', '200']],
-  metricScale: [['linear', '선형'], ['log', '로그']],
-  priceScale:  [['linear', '선형'], ['log', '로그'], ['none', '숨기기']],
-  chartStyle:  [['column', '바'], ['line', '선'], ['area', '영역']],
+  window:     [['DAY', '1일'], ['WEEK', '1주'], ['MONTH', '1달']],
+  sma:        [['0', '선택안함'], ['7', '7'], ['14', '14'], ['30', '30'], ['50', '50'], ['100', '100'], ['200', '200']],
+  ema:        [['0', '선택안함'], ['7', '7'], ['14', '14'], ['30', '30'], ['50', '50'], ['100', '100'], ['200', '200']],
+  scale:      [['linear', '선형'], ['log', '로그']],
+  chartStyle: [['column', '바'], ['candle', '봉'], ['line', '선'], ['area', '영역']],
 };
 const RANGES = [['1w', '1주'], ['1m', '1월'], ['3m', '3월'], ['1y', '1년'], ['ytd', 'YTD'], ['all', 'All']];
 
@@ -881,9 +904,8 @@ function chartSettings(def, opts) {
   const pick = (k, d) => { const v = opts.get(k); return OPTS[k].some(o => o[0] === v) ? v : d; };
   return {
     window: pick('window', 'DAY'), sma: pick('sma', '0'), ema: pick('ema', '0'),
-    metricScale: pick('metricScale', 'linear'), priceScale: pick('priceScale', 'linear'),
-    chartStyle: pick('chartStyle', cat.style),
-    range: RANGES.some(r => r[0] === opts.get('range')) ? opts.get('range') : 'all',
+    scale: pick('scale', 'linear'), chartStyle: pick('chartStyle', cat.style),
+    range: RANGES.some(r => r[0] === opts.get('range')) ? opts.get('range') : '3m',
   };
 }
 // 설정 하나를 바꾸면 주소를 바꾸고 → 화면이 다시 그려져요
@@ -896,54 +918,61 @@ function rangeStart(lastDay, range) {
   if (range === 'all' || !lastDay) return '';
   if (range === 'ytd') return lastDay.slice(0, 4) + '-01-01';
   const d = new Date(lastDay + 'T00:00:00Z');
-  const back = { '1w': 7, '1m': 30, '3m': 91, '1y': 365 }[range];
-  d.setUTCDate(d.getUTCDate() - back);
+  d.setUTCDate(d.getUTCDate() - { '1w': 7, '1m': 30, '3m': 91, '1y': 365 }[range]);
   return d.toISOString().slice(0, 10);
 }
+function lastNDays(n) {
+  const out = [], d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  for (let i = 0; i < n; i++) { d.setUTCDate(d.getUTCDate() + 1); out.push(d.toISOString().slice(0, 10)); }
+  return out;
+}
+const pad2 = n => String(n).padStart(2, '0');
 
 function drawMetric(c, def) {
   const { opts } = route();
   const S = chartSettings(def, opts);
   const cat = CATS.find(k => k.id === def.cat);
   const daily = series(c, def);
-  const st = status(def, daily);
   const sel = (k, label) => `
     <label class="ctl"><small>${label}</small>
       <select data-set="${k}">${OPTS[k].map(([v, t]) => `<option value="${v}" ${S[k] === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
     </label>`;
-  const title = def.name + (def.cat === 'flows' ? ' - 전체 거래소' : '');
+  const title = `${c.name}: ${def.name}` + (def.cat === 'flows' ? ' - 전체 거래소' : '');
 
   $('page').innerHTML = `
     <div class="crumb"><a href="${link(c)}">${c.name}</a> › <a href="${link(c, cat.id)}">${cat.name}</a> › ${def.name}</div>
     <div class="ccard" id="ccard">
       <div class="chead">
-        <b>${title}</b>
+        <div class="ctitle">${icon(c)}<b>${title}</b></div>
         <div class="cicons">
           <button class="starbtn ${FAVS.includes(def.key) ? 'on' : ''}" id="favBtn" title="즐겨찾기">★</button>
+          <button class="iconbtn" id="linkBtn" title="이 차트 주소 복사">🔗</button>
           <button class="iconbtn" id="shotBtn" title="차트를 이미지로 저장">📷</button>
           <button class="iconbtn" id="fullBtn" title="전체 화면">⛶</button>
         </div>
       </div>
       <div class="cbody">
-        <div class="controls">
-          ${def.cat === 'flows' ? `<label class="ctl"><small>거래소</small><select><option>전체 거래소</option></select></label>` : ''}
-          ${sel('window', '단위')}
-          ${sel('sma', '이평')}
-          ${sel('ema', '지수이평')}
-          ${sel('metricScale', '눈금(지표)')}
-          ${sel('priceScale', '가격')}
-          ${sel('chartStyle', '차트 스타일')}
-        </div>
-        <div class="rangebar">
-          <div class="range">${RANGES.map(([v, t]) => `<button data-range="${v}" class="${S.range === v ? 'on' : ''}">${t}</button>`).join('')}</div>
-          <div class="mval">
-            ${daily.length ? `최신 <b class="num">${fmt(lastOf(daily), def, c)}</b>
-              <span class="num ${pctCls(chg24(daily))}" style="margin-left:6px">${pctTxt(chg24(daily))}</span>
-              <span class="pill s-${st.c}" style="margin-left:8px">${st.t}</span>` : ''}
+        <div class="ctop">
+          <div class="controls">
+            ${def.cat === 'flows' ? `<label class="ctl"><small>거래소</small><select><option>전체 거래소</option></select></label>` : ''}
+            ${sel('window', '단위')}
+            ${sel('sma', '이평')}
+            ${sel('ema', '지수이평')}
+            ${sel('scale', '눈금(스케일)')}
+            ${sel('chartStyle', '차트 스타일')}
+            ${S.chartStyle === 'candle' ? `<label class="ctl"><small>눈금 최대</small>
+              <input id="ymax" class="ymax" placeholder="자동 (예: 90T)" value="${(opts.get('ymax') || '').replace(/[^\w.]/g, '')}"></label>` : ''}
           </div>
+          <div class="range">${RANGES.map(([v, t]) => `<button data-range="${v}" class="${S.range === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         </div>
+        <div class="draghint" id="dragHint" hidden></div>
         <div class="legend" id="legend"></div>
-        <div class="chartbox"><div id="chart"></div><div id="chartMsg"></div></div>
+        <div class="chartbox" id="chartbox"><div id="chart"></div><div id="chartMsg"></div></div>
+        <div class="navi" id="navi">
+          <svg id="naviSvg"></svg>
+          <div class="navwin" id="navWin"><span class="h" data-h="l"></span><span class="h" data-h="r"></span></div>
+        </div>
       </div>
     </div>
     <div class="about">
@@ -953,6 +982,10 @@ function drawMetric(c, def) {
     <div id="editArea"></div>`;
 
   $('favBtn').onclick = () => { toggleFav(def.key); $('favBtn').classList.toggle('on'); drawSide(); };
+  $('linkBtn').onclick = async () => {
+    try { await navigator.clipboard.writeText(location.href); $('linkBtn').textContent = '✓'; } catch {}
+    setTimeout(() => { if ($('linkBtn')) $('linkBtn').textContent = '🔗'; }, 1200);
+  };
   $('fullBtn').onclick = () => document.fullscreenElement ? document.exitFullscreen() : $('ccard').requestFullscreen();
   $('shotBtn').onclick = () => {
     if (!chart) return;
@@ -962,79 +995,134 @@ function drawMetric(c, def) {
     a.click();
   };
   document.querySelectorAll('select[data-set]').forEach(s => s.onchange = () => setSetting(s.dataset.set, s.value));
+  if ($('ymax')) $('ymax').onchange = () => setSetting('ymax', $('ymax').value.trim());
   document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => setSetting('range', b.dataset.range));
 
   drawChart(c, def, daily, S);
   drawEditArea(c, def);
 }
 
+/* ----- 차트 그리기 ----- */
+let chartData = [], mainSeries = null, navSync = null, navObserver = null;
+
 function drawChart(c, def, daily, S) {
+  const candle = S.chartStyle === 'candle';
+  const canDrag = candle && S.window === 'DAY' && !def.calc;
+
+  // 눈금에 쓰는 짧은 숫자 (90T, $1.5B …)
+  const compact = a => a >= 1e12 ? +(a / 1e12).toFixed(1) + 'T' : a >= 1e9 ? +(a / 1e9).toFixed(1) + 'B'
+                     : a >= 1e6 ? +(a / 1e6).toFixed(1) + 'M' : a >= 1e3 ? +(a / 1e3).toFixed(1) + 'K'
+                     : String(Number(a.toPrecision(3)));
+  const axis = v => def.fmt === 'hash' ? hash(v) : def.fmt === 'ratio' ? v.toFixed(2)
+                  : def.fmt === 'pct' ? v.toFixed(1) + '%'
+                  : (v < 0 ? '-' : '') + (def.fmt === 'usd' ? '$' : '') + compact(Math.abs(v));
+  const pf = f => ({ type: 'custom', formatter: f, minMove: 1e-12 });
+  const dayOf = t => typeof t === 'string' ? t : typeof t === 'number'
+    ? new Date(t * 1000).toISOString().slice(0, 10) : `${t.year}-${pad2(t.month)}-${pad2(t.day)}`;
+
   chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
-    layout: { background: { color: 'transparent' }, textColor: cssVar('--muted'), fontSize: 11 },
-    grid: { vertLines: { visible: false }, horzLines: { color: cssVar('--line') } },
-    leftPriceScale: { visible: true, borderVisible: false },
-    rightPriceScale: { borderVisible: false },
-    timeScale: { borderColor: cssVar('--line') },
+    layout: { background: { color: 'transparent' }, textColor: '#55555f', fontSize: 11 },
+    grid: { vertLines: { visible: false }, horzLines: { color: '#f1f1f4' } },
+    leftPriceScale: { visible: true, borderVisible: true, borderColor: cssVar('--bar'), scaleMargins: { top: 0.06, bottom: 0.03 } },
+    rightPriceScale: { borderVisible: true, borderColor: cssVar('--priceline'), scaleMargins: { top: 0.06, bottom: 0.04 } },
+    timeScale: {
+      borderColor: cssVar('--line'), rightOffset: 1, barSpacing: 14, minBarSpacing: 0.3,
+      tickMarkFormatter: (t, type) => {
+        const [y, m, d] = dayOf(t).split('-');
+        return type === 0 ? y : type === 1 ? `${y} ${m}` : `${m} ${d}`;
+      },
+    },
+    localization: { timeFormatter: t => dayOf(t) },
+    watermark: { visible: true, text: 'ChainLens', color: 'rgba(23,23,28,0.045)', fontSize: 56 },
     crosshair: { mode: 0 },
+    handleScroll: canDrag ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false } : true,
+    handleScale: { axisPressedMouseMove: !canDrag, mouseWheel: true, pinch: true },
   });
-  const pf = f => ({ type: 'custom', formatter: f, minMove: 1e-12 });
-  const mf = pf(v => fmt(v, def, c));
 
-  // 1) 일 → 주/월로 묶고, 이평은 전체 기간으로 계산한 뒤 보이는 기간만 잘라요
+  // 1) 일 → 주/월로 묶기
   const full = aggregate(daily, S.window, def.agg);
-  const from = rangeStart(full.length ? full[full.length - 1].time : '', S.range);
-  const cut = a => from ? a.filter(p => p.time >= from) : a;
-  const data = cut(full);
+  chartData = full.map(p => ({ ...p }));
+  // 봉 모드에서 데이터가 하나도 없으면, 가격이 있는 날짜(없으면 최근 1년)로 빈 칸을 만들어 끌어서 채울 수 있게
+  if (canDrag && !chartData.length) {
+    const days = toArr(baseMap(c.id, 'PriceUSD')).map(p => p.time).slice(-365);
+    chartData = (days.length ? days : lastNDays(365)).map(time => ({ time, value: 0, ph: true }));   // ph: 아직 빈 칸
+  }
+  const n = chartData.length;
+  const hasValue = chartData.some(p => p.value != null && !p.ph);
+  // 봉 모드 '눈금 최대' (예: 90T, 1.5B) — 비워 두면 자동
+  const unitMul = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 };
+  const ymaxTxt = (route().opts.get('ymax') || '').trim().toUpperCase();
+  const ymaxM = ymaxTxt.match(/^([\d.]+)\s*([KMBT]?)$/);
+  const ymax = ymaxM ? parseFloat(ymaxM[1]) * (unitMul[ymaxM[2]] || 1) : null;
 
   // 2) 지표 (왼쪽 눈금)
-  let main;
-  if (S.chartStyle === 'column') {
-    main = chart.addHistogramSeries({ priceScaleId: 'left', priceFormat: mf, base: 0 });
-    main.setData(data.map(p => ({ ...p,
-      color: def.kind === 'hist' ? (p.value >= 0 ? cssVar('--down') : cssVar('--up')) : cssVar('--bar') })));
+  const barColor = p => def.kind === 'hist' ? (p.value >= 0 ? cssVar('--down') : cssVar('--up')) : cssVar('--bar');
+  // 막대는 '0에서 값까지 올라가는 캔들'로 그려요 → 막대 사이에 원본처럼 틈이 생겨요
+  const colored = () => chartData.map(p => p.value == null ? { time: p.time } : {
+    time: p.time, open: 0, close: p.value, high: Math.max(0, p.value), low: Math.min(0, p.value), color: barColor(p),
+  });
+  let frozen = null, lastRange = null;
+  const provider = orig => {        // 봉 모드: 위쪽에 여유를 둬서 더 길게 끌 수 있게, 끄는 동안엔 눈금 고정
+    if (frozen) return { priceRange: frozen };
+    const r = orig();
+    let lo = 0, hi = 100;
+    if (r && r.priceRange) { lo = Math.min(0, r.priceRange.minValue); hi = r.priceRange.maxValue; }
+    if (hi <= lo) hi = lo + 100;
+    const room = candle ? 1.3 : 1;
+    lastRange = { minValue: lo < 0 ? lo * room : 0, maxValue: candle && ymax ? ymax : hi * room };
+    return { priceRange: lastRange };
+  };
+
+  if (S.chartStyle === 'column' || candle) {
+    mainSeries = chart.addCandlestickSeries({
+      priceScaleId: 'left', priceFormat: pf(axis), autoscaleInfoProvider: provider,
+      upColor: cssVar('--bar'), downColor: cssVar('--bar'), wickVisible: false, borderVisible: false,
+    });
+    mainSeries.setData(colored());
   } else if (S.chartStyle === 'area') {
-    main = chart.addAreaSeries({ priceScaleId: 'left', priceFormat: mf, lineColor: cssVar('--bar'), lineWidth: 2,
-                                 topColor: 'rgba(19,162,107,.28)', bottomColor: 'rgba(19,162,107,0)' });
-    main.setData(data);
+    mainSeries = chart.addAreaSeries({ priceScaleId: 'left', priceFormat: pf(axis), lineColor: cssVar('--bar'), lineWidth: 2,
+                                       topColor: 'rgba(19,162,107,.28)', bottomColor: 'rgba(19,162,107,0)' });
+    mainSeries.setData(full);
   } else {
-    main = chart.addLineSeries({ priceScaleId: 'left', priceFormat: mf, color: cssVar('--bar'), lineWidth: 2 });
-    main.setData(data);
+    mainSeries = chart.addLineSeries({ priceScaleId: 'left', priceFormat: pf(axis), color: cssVar('--bar'), lineWidth: 2 });
+    mainSeries.setData(full);
   }
-  // 원본 값을 고친 날짜에만 점 찍기 (일 단위일 때만, 새로 입력한 날짜는 제외)
-  if (S.window === 'DAY') {
+  // 원본 값을 고친 날짜에 점 찍기 (일 단위, 봉 모드가 아닐 때)
+  if (S.window === 'DAY' && !candle) {
     const orig = (def.needs || [def.key]).map(k => (raw[c.id] && raw[c.id][k]) || new Map());
-    main.setMarkers(editedDays(c.id, def).filter(d => (!from || d >= from) && orig.some(m => m.has(d)))
+    mainSeries.setMarkers(editedDays(c.id, def).filter(d => orig.some(m => m.has(d)))
       .map(time => ({ time, position: 'aboveBar', color: cssVar('--brand'), shape: 'circle', size: 0.6 })));
   }
 
   // 3) 이동평균선
   const legend = [];
-  if (S.sma !== '0') {
-    chart.addLineSeries({ priceScaleId: 'left', priceFormat: mf, color: cssVar('--sma'), lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false })
-      .setData(cut(sma(full, +S.sma)));
-    legend.push(`<span><i class="lg-line" style="background:var(--sma)"></i>SMA ${S.sma}</span>`);
-  }
-  if (S.ema !== '0') {
-    chart.addLineSeries({ priceScaleId: 'left', priceFormat: mf, color: cssVar('--ema'), lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false })
-      .setData(cut(ema(full, +S.ema)));
-    legend.push(`<span><i class="lg-line" style="background:var(--ema)"></i>EMA ${S.ema}</span>`);
-  }
+  const maLine = (arr, color, label) => {
+    chart.addLineSeries({ priceScaleId: 'left', priceFormat: pf(axis), color, lineWidth: 1.5,
+                          priceLineVisible: false, lastValueVisible: false }).setData(arr);
+    legend.push(`<span><i class="lg-line" style="background:${color}"></i>${label}</span>`);
+  };
+  if (S.sma !== '0' && full.length) maLine(sma(full, +S.sma), cssVar('--sma'), 'SMA ' + S.sma);
+  if (S.ema !== '0' && full.length) maLine(ema(full, +S.ema), cssVar('--ema'), 'EMA ' + S.ema);
 
-  // 4) 가격 (오른쪽 눈금, 검정 선)
-  const withPrice = S.priceScale !== 'none' && def.key !== 'PriceUSD';
+  // 4) 가격 (오른쪽 눈금, 검정 선) — '봉' 스타일에서는 숨겨요
+  const withPrice = !candle && def.key !== 'PriceUSD';
   if (withPrice) {
-    // 지표 데이터가 있는 기간에만 가격선 그리기
-    const first = data.length ? data[0].time : '';
-    const price = cut(aggregate(toArr(baseMap(c.id, 'PriceUSD')), S.window)).filter(p => !first || p.time >= first);
+    const first = full.length ? full[0].time : '';
+    const price = aggregate(toArr(baseMap(c.id, 'PriceUSD')), S.window).filter(p => !first || p.time >= first);
     chart.addLineSeries({ priceScaleId: 'right', color: cssVar('--priceline'), lineWidth: 1.2,
                           priceFormat: pf(v => fmt(v, { fmt: 'usd' }, c)) }).setData(price);
   }
-  chart.applyOptions({
-    leftPriceScale: { mode: S.metricScale === 'log' ? 1 : 0 },
-    rightPriceScale: { visible: withPrice, mode: S.priceScale === 'log' ? 1 : 0 },
-  });
-  chart.timeScale().fitContent();
+  const mode = S.scale === 'log' ? 1 : 0;
+  chart.applyOptions({ leftPriceScale: { mode }, rightPriceScale: { visible: withPrice, mode } });
+
+  // 5) 처음 보여줄 기간
+  const from = rangeStart(n ? chartData[n - 1].time : '', S.range);
+  if (!from) chart.timeScale().fitContent();
+  else {
+    const i = Math.max(0, chartData.findIndex(p => p.time >= from));
+    chart.timeScale().setVisibleLogicalRange({ from: i - 0.5, to: n - 0.5 + 1 });
+  }
 
   $('legend').innerHTML = [
     withPrice ? `<span><i class="lg-line" style="background:var(--priceline)"></i>가격(USD)</span>` : '',
@@ -1042,9 +1130,153 @@ function drawChart(c, def, daily, S) {
     ...legend,
   ].join('');
 
-  $('chartMsg').innerHTML = data.length ? '' : def.calc
+  // 6) 안내 문구
+  const hint = $('dragHint');
+  if (candle) {
+    hint.hidden = false;
+    hint.innerHTML = def.calc
+      ? `이 지표는 자동 계산이라 끌어서 고칠 수 없어요. 재료 지표(${def.needs.map(k => metricByKey(k).name).join(', ')})에서 고쳐 주세요.`
+      : S.window !== 'DAY'
+      ? '막대 길이는 <b>단위: 1일</b>일 때만 끌어서 고칠 수 있어요.'
+      : '↕ 막대를 마우스로 <b>위아래로 끌면</b> 길이(값)가 바뀌고, 놓는 순간 저장돼요. 빈 칸을 눌러 끌면 새 막대가 생겨요. 옆으로 이동은 아래 미니 차트에서 해요.';
+  }
+  $('chartbox').classList.toggle('dragmode', canDrag);
+  $('chartMsg').innerHTML = hasValue ? '' : canDrag
+    ? '아직 값이 없어요.<br>아무 칸이나 눌러 위로 끌어 올려 보세요.'
+    : def.calc
     ? `아직 데이터가 없어요.<br>이 지표는 ${def.needs.map(k => metricByKey(k).name).join(', ')}로 계산돼요. 그 지표에 값을 입력해 보세요.`
-    : `아직 데이터가 없어요.<br>오른쪽 위 <b>✎ 데이터 편집</b>을 켜면 아래에서 날짜별 값을 직접 입력하거나 한 번에 붙여넣을 수 있어요.`;
+    : `아직 데이터가 없어요.<br>차트 스타일을 <b>봉</b>으로 바꾸면 마우스로 막대를 직접 그릴 수 있어요.`;
+
+  // 7) 막대 끌어서 값 바꾸기
+  if (canDrag) {
+    const box = $('chart');
+    let drag = null;
+    const locate = e => {
+      const r = box.getBoundingClientRect();
+      const paneLeft = r.width - chart.priceScale('right').width() - chart.timeScale().width();   // 왼쪽 눈금 너비만큼 빼기
+      return { x: e.clientX - r.left - paneLeft, y: e.clientY - r.top,
+               w: chart.timeScale().width(), h: r.height - chart.timeScale().height() };
+    };
+    const move = e => {
+      let v = mainSeries.coordinateToPrice(Math.max(0, Math.min(locate(e).y, locate(e).h)));
+      if (v == null || !isFinite(v)) return;
+      if (def.kind !== 'hist') v = Math.max(0, v);
+      v = Number(v.toPrecision(6));
+      const p = chartData[drag];
+      p.value = v;
+      p.ph = false;
+      mainSeries.setData(colored());
+      hint.innerHTML = `<b>${p.time}</b> → <b>${fmt(v, def, c)}</b> &nbsp;(놓으면 저장돼요)`;
+    };
+    const end = () => {
+      if (drag == null) return;
+      const p = chartData[drag];
+      drag = null; frozen = null;
+      if (p.ph || p.value == null) return;
+      setValue(c.id, def.key, p.time, p.value);
+      mainSeries.setData(colored());          // 눈금 다시 맞추기
+      $('chartMsg').innerHTML = '';
+      hint.innerHTML = `✓ <b>${p.time}</b> 값을 <b>${fmt(p.value, def, c)}</b>(으)로 저장했어요. 되돌리려면 오른쪽 위 <b>✎ 데이터 편집</b>을 켜고 아래 표에서 지우세요.`;
+      drawEditArea(c, def);
+      drawSide();
+      drawNavigator();
+    };
+    box.addEventListener('pointerdown', e => {
+      const p = locate(e);
+      if (p.x < 0 || p.x > p.w || p.y < 0 || p.y > p.h) return;
+      const idx = Math.round(chart.timeScale().coordinateToLogical(p.x));
+      if (!(idx >= 0 && idx < n)) return;
+      frozen = lastRange;
+      drag = idx;
+      try { box.setPointerCapture(e.pointerId); } catch {}
+      e.preventDefault();
+      move(e);
+    }, true);
+    box.addEventListener('pointermove', e => { if (drag != null) move(e); }, true);
+    box.addEventListener('pointerup', end, true);
+    box.addEventListener('pointercancel', end, true);
+  }
+
+  drawNavigator();
+}
+
+/* ----- 아래 미니 차트 (전체 기간 + 보이는 구간 조절) ----- */
+function drawNavigator() {
+  const nav = $('navi');
+  if (!nav || !chart) return;
+  const n = chartData.length;
+  if (n < 2) { nav.style.display = 'none'; return; }
+  nav.style.display = '';
+  const svg = $('naviSvg'), win = $('navWin');
+  const W = nav.clientWidth, H = nav.clientHeight;
+  const X = i => i / (n - 1) * W;
+
+  const draw = () => {
+    const real = p => p.value != null && !p.ph;
+    const vals = chartData.filter(real).map(p => p.value);
+    const lo = vals.length ? Math.min(0, ...vals) : 0, hi = vals.length ? Math.max(...vals) : 1;
+    const Y = v => H - 16 - (v - lo) / ((hi - lo) || 1) * (H - 26);
+    const pts = chartData.map((p, i) => real(p) ? `${X(i).toFixed(1)},${Y(p.value).toFixed(1)}` : '').filter(Boolean).join(' ');
+    // 날짜 표시: 글자가 겹치지 않게 1·3·6·12·24·60개월 중 알맞은 간격으로
+    const mIdx = t => +t.slice(0, 4) * 12 + +t.slice(5, 7) - 1;
+    const months = mIdx(chartData[n - 1].time) - mIdx(chartData[0].time) + 1;
+    const step = [1, 3, 6, 12, 24, 36, 60, 120].find(s => months / s <= W / 75) || 120;
+    let labels = '', prev = '';
+    chartData.forEach((p, i) => {
+      const ym = p.time.slice(0, 7);
+      if (prev && ym !== prev) {
+        if (mIdx(p.time) % step === 0) {
+          labels += `<line x1="${X(i)}" x2="${X(i)}" y1="0" y2="${H}" stroke="#ececf0"/>
+                     <text x="${X(i) + 4}" y="${H - 4}" font-size="10" fill="#9a9aa6">${ym.replace('-', ' ')}</text>`;
+        }
+      }
+      prev = ym;
+    });
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.innerHTML = labels + (pts ? `<polyline points="${pts}" fill="none" stroke="${cssVar('--bar')}" stroke-width="1.2"/>` : '');
+  };
+  draw();
+
+  // 차트에서 보이는 구간 ↔ 미니 차트의 네모 칸 맞추기
+  if (navSync) chart.timeScale().unsubscribeVisibleLogicalRangeChange(navSync);
+  navSync = r => {
+    if (!r) return;
+    const a = Math.max(0, r.from), b = Math.min(n - 1, r.to);
+    win.style.left = X(a) + 'px';
+    win.style.width = Math.max(8, X(b) - X(a)) + 'px';
+  };
+  chart.timeScale().subscribeVisibleLogicalRangeChange(navSync);
+  navSync(chart.timeScale().getVisibleLogicalRange());
+
+  // 네모 칸 끌기: 가운데=이동, 양쪽 손잡이=넓히기/좁히기, 바깥 클릭=그 위치로 이동
+  nav.onpointerdown = e => {
+    const rect = nav.getBoundingClientRect();
+    const perPx = (n - 1) / W;
+    const start = chart.timeScale().getVisibleLogicalRange();
+    if (!start) return;
+    let mode = e.target.dataset.h || (e.target === win ? 'move' : 'jump');
+    let base = { from: start.from, to: start.to }, x0 = e.clientX;
+    if (mode === 'jump') {
+      const span = base.to - base.from, mid = (e.clientX - rect.left) * perPx;
+      base = { from: mid - span / 2, to: mid + span / 2 };
+      chart.timeScale().setVisibleLogicalRange(base);
+      mode = 'move';
+    }
+    try { nav.setPointerCapture(e.pointerId); } catch {}
+    nav.onpointermove = ev => {
+      const di = (ev.clientX - x0) * perPx;
+      let { from, to } = base;
+      if (mode === 'move') { from += di; to += di; }
+      else if (mode === 'l') from = Math.min(from + di, to - 3);
+      else to = Math.max(to + di, from + 3);
+      chart.timeScale().setVisibleLogicalRange({ from, to });
+    };
+    nav.onpointerup = nav.onpointercancel = () => { nav.onpointermove = null; };
+  };
+
+  if (navObserver) navObserver.disconnect();
+  navObserver = new ResizeObserver(() => { if (nav.clientWidth !== W) drawNavigator(); });
+  navObserver.observe(nav);
 }
 
 /* ----- 편집 영역 ----- */
