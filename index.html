@@ -276,7 +276,11 @@
   .cicons .ic.on { color: var(--star); }
   .cicons .ic.on svg { fill: var(--star); }
   /* 기간 버튼 + 달력 */
-  .rangewrap { position: relative; }
+  .rangewrap { position: relative; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .adddays { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .adddays b { color: var(--text); }
+  .adddays .btn { padding: 4px 10px; font-size: 12px; }
+  .adddays .btn:disabled { opacity: .4; cursor: default; }
   .range .cal { color: var(--brand); display: grid; place-items: center; padding: 3px 10px; }
   .calpop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 6; background: var(--bg); border: 1px solid var(--line);
             border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.12); padding: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
@@ -584,6 +588,9 @@ async function fetchCoin(c) {
 const LS_KEY = 'chainlens-overrides', FAV_KEY = 'chainlens-favs', LOCK_KEY = 'chainlens-lock';
 let LOCKED = false;   // 차트 잠금 상태 (F6으로 켜고 끄기, 새로고침해도 유지)
 try { LOCKED = localStorage.getItem(LOCK_KEY) === '1'; } catch {}
+const EXTRA_KEY = 'chainlens-extra-days';
+let EXTRA = 0;   // 오늘 뒤로 미리 만들어 둘 날짜 수 ('＋ 추가' 버튼)
+try { EXTRA = Math.max(0, parseInt(localStorage.getItem(EXTRA_KEY), 10) || 0); } catch {}
 let PUBLISHED = { values: {}, notes: {} };
 let OV = { values: {}, notes: {} };
 let FAVS = [];
@@ -1108,6 +1115,12 @@ function drawMetric(c, def) {
               <label>끝 <input type="date" id="calTo"></label>
               <button class="btn primary" id="calApply">적용</button>
             </div>
+            ${S.chartStyle === 'candle' && S.window === 'DAY' && !def.calc ? `
+            <div class="adddays">
+              <span>미래 날짜 <b id="extraCnt">${EXTRA}</b>일</span>
+              <button class="btn" id="delDayBtn" title="맨 끝 빈 날짜 하나 빼기" ${EXTRA ? '' : 'disabled'}>－</button>
+              <button class="btn primary" id="addDayBtn" title="오늘 다음 날짜 칸 하나 더 만들기">＋ 추가</button>
+            </div>` : ''}
           </div>
         </div>
         <div class="draghint" id="dragHint" hidden></div>
@@ -1149,6 +1162,20 @@ function drawMetric(c, def) {
     URL.revokeObjectURL(a.href);
   };
   // 달력: 시작~끝 날짜를 골라 그 기간만 보기
+  // ＋ 추가 / － : 오늘 다음 날짜 칸을 늘리거나 줄이기 (모든 코인에 똑같이, 새로고침해도 유지)
+  const setExtra = n => {
+    EXTRA = Math.max(0, n);
+    try { localStorage.setItem(EXTRA_KEY, String(EXTRA)); } catch {}
+    rerender();
+  };
+  if ($('addDayBtn')) $('addDayBtn').onclick = () => {
+    setExtra(EXTRA + 1);
+    const d = new Date(); d.setUTCDate(d.getUTCDate() + EXTRA);
+    const [, m, dd] = d.toISOString().slice(0, 10).split('-');
+    toast(`＋ ${m} ${dd} 날짜를 추가했어요`);
+  };
+  if ($('delDayBtn')) $('delDayBtn').onclick = () => setExtra(EXTRA - 1);
+
   $('calBtn').onclick = e => {
     e.stopPropagation();
     const pop = $('calPop');
@@ -1235,7 +1262,10 @@ function drawChart(c, def, daily, S) {
   // (봉 모드에선 높이 0인 빈 막대 → 끌어 올려서 채울 수 있어요. 최소 최근 1년은 칸을 만들어 둬요)
   if (S.window === 'DAY' && (editable || full.length)) {
     const priceDays = toArr(baseMap(c.id, 'PriceUSD')).map(p => p.time);
-    const today = new Date().toISOString().slice(0, 10);   // 오늘 날짜(UTC)까지 칸을 만들어요
+    // 오늘 날짜(UTC) + '＋ 추가'로 늘린 날짜 수까지 칸을 만들어요 (봉 모양일 때만 미래 날짜 추가)
+    const lastDayD = new Date();
+    if (editable) lastDayD.setUTCDate(lastDayD.getUTCDate() + EXTRA);
+    const today = lastDayD.toISOString().slice(0, 10);
     const end = [full.length ? full[full.length - 1].time : '', priceDays[priceDays.length - 1] || '', today].sort().pop();
     const d = new Date(end + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() - 364);
