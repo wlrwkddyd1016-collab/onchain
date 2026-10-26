@@ -1266,7 +1266,7 @@ function drawChart(c, def, daily, S) {
       },
     },
     localization: { timeFormatter: t => dayOf(t) },
-    watermark: { visible: true, text: 'ChainLens', color: 'rgba(23,23,28,0.045)', fontSize: 56 },
+    watermark: { visible: true, text: 'OnChain', color: 'rgba(23,23,28,0.045)', fontSize: 56 },   // 차트 가운데 흐린 글씨
     crosshair: { mode: 0 },
     handleScroll: editable ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false } : true,
     handleScale: { axisPressedMouseMove: !editable, mouseWheel: true, pinch: true },
