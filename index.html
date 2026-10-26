@@ -434,6 +434,8 @@ const COINS = [
   { id: 'w',    cg: 'wormhole',     name: '웜홀',         sym: 'W',    m: ['PriceUSD'], logo: 'w', qty: 1e7 },
   // 쿼크에이아이(영문 Quack AI, 기호 Q): 로고·시세는 CoinGecko에서 자동으로 가져와요. 온체인 값은 직접 그려 넣어요
   { id: 'q',    cg: 'quack-ai',     name: '쿼크에이아이', sym: 'Q',    m: ['PriceUSD'], qty: 1e7 },
+  // 아이리스(영문 Irys, 기호 IRYS): 로고·시세는 CoinGecko에서 자동으로 가져와요. 온체인 값은 직접 그려 넣어요
+  { id: 'irys', cg: 'irys',         name: '아이리스',     sym: 'IRYS', m: ['PriceUSD'], qty: 1e7 },
 ];
 
 // 직접 넣은 코인 로고 (그림 파일을 글자로 바꿔서 이 파일 안에 담아 뒀어요)
@@ -591,8 +593,14 @@ const LS_KEY = 'chainlens-overrides', FAV_KEY = 'chainlens-favs', LOCK_KEY = 'ch
 let LOCKED = false;   // 차트 잠금 상태 (F6으로 켜고 끄기, 새로고침해도 유지)
 try { LOCKED = localStorage.getItem(LOCK_KEY) === '1'; } catch {}
 const EXTRA_KEY = 'chainlens-extra-days';
-let EXTRA = 0;   // 오늘 뒤로 미리 만들어 둘 날짜 수 ('＋ 추가' 버튼)
-try { EXTRA = Math.max(0, parseInt(localStorage.getItem(EXTRA_KEY), 10) || 0); } catch {}
+let EXTRA = 0;   // 봉 차트 끝 날짜 = 오늘 + EXTRA일 ('＋ 추가'는 +1, '－ 삭제'는 -1, 오늘보다 앞으로도 가능)
+try { EXTRA = Math.max(-3650, parseInt(localStorage.getItem(EXTRA_KEY), 10) || 0); } catch {}
+// 끝 날짜 계산 (UTC 기준 'YYYY-MM-DD')
+function endDayOf(extra) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + extra);
+  return d.toISOString().slice(0, 10);
+}
 let PUBLISHED = { values: {}, notes: {} };
 let OV = { values: {}, notes: {} };
 let FAVS = [];
@@ -1119,9 +1127,9 @@ function drawMetric(c, def) {
             </div>
             ${S.chartStyle === 'candle' && S.window === 'DAY' && !def.calc ? `
             <div class="adddays">
-              <span>미래 날짜 <b id="extraCnt">${EXTRA}</b>일</span>
-              <button class="btn" id="delDayBtn" title="맨 끝 빈 날짜 하나 빼기" ${EXTRA ? '' : 'disabled'}>－</button>
-              <button class="btn primary" id="addDayBtn" title="오늘 다음 날짜 칸 하나 더 만들기">＋ 추가</button>
+              <span>끝 날짜 <b id="extraCnt">${endDayOf(EXTRA).slice(5).replace('-', ' ')}</b></span>
+              <button class="btn" id="delDayBtn" title="맨 끝 날짜 하나 지우기 (그날 그린 값도 함께 지워져요)">－ 삭제</button>
+              <button class="btn primary" id="addDayBtn" title="맨 끝 다음 날짜 칸 하나 더 만들기">＋ 추가</button>
             </div>` : ''}
           </div>
         </div>
@@ -1165,18 +1173,25 @@ function drawMetric(c, def) {
   };
   // 달력: 시작~끝 날짜를 골라 그 기간만 보기
   // ＋ 추가 / － : 오늘 다음 날짜 칸을 늘리거나 줄이기 (모든 코인에 똑같이, 새로고침해도 유지)
+  // － 삭제: 오늘보다 앞의 날짜까지 하나씩 지울 수 있어요 (최대 10년 전까지)
   const setExtra = n => {
-    EXTRA = Math.max(0, n);
+    EXTRA = Math.max(-3650, n);
     try { localStorage.setItem(EXTRA_KEY, String(EXTRA)); } catch {}
     rerender();
   };
+  const mmdd = day => day.slice(5).replace('-', ' ');
   if ($('addDayBtn')) $('addDayBtn').onclick = () => {
     setExtra(EXTRA + 1);
-    const d = new Date(); d.setUTCDate(d.getUTCDate() + EXTRA);
-    const [, m, dd] = d.toISOString().slice(0, 10).split('-');
-    toast(`＋ ${m} ${dd} 날짜를 추가했어요`);
+    toast(`＋ ${mmdd(endDayOf(EXTRA))} 날짜를 추가했어요`);
   };
-  if ($('delDayBtn')) $('delDayBtn').onclick = () => setExtra(EXTRA - 1);
+  if ($('delDayBtn')) $('delDayBtn').onclick = () => {
+    if (LOCKED) return toast('🔒 차트가 잠겨 있어서 지울 수 없어요 (F6으로 풀기)');
+    const day = endDayOf(EXTRA);
+    // 그날 직접 그려 넣은 값이 있으면 함께 지워요
+    if (day in editsOf(c.id, def.key)) setValue(c.id, def.key, day, '');
+    setExtra(EXTRA - 1);
+    toast(`－ ${mmdd(day)} 날짜를 지웠어요`);
+  };
 
   $('calBtn').onclick = e => {
     e.stopPropagation();
@@ -1265,10 +1280,10 @@ function drawChart(c, def, daily, S) {
   if (S.window === 'DAY' && (editable || full.length)) {
     const priceDays = toArr(baseMap(c.id, 'PriceUSD')).map(p => p.time);
     // 오늘 날짜(UTC) + '＋ 추가'로 늘린 날짜 수까지 칸을 만들어요 (봉 모양일 때만 미래 날짜 추가)
-    const lastDayD = new Date();
-    if (editable) lastDayD.setUTCDate(lastDayD.getUTCDate() + EXTRA);
-    const today = lastDayD.toISOString().slice(0, 10);
-    const end = [full.length ? full[full.length - 1].time : '', priceDays[priceDays.length - 1] || '', today].sort().pop();
+    // 봉 모양: 끝 날짜 = 오늘 ± ('＋ 추가'/'－ 삭제'로 바꾼 날짜 수). 그 뒤 날짜는 보이지 않아요
+    const today = new Date().toISOString().slice(0, 10);
+    const end = editable ? endDayOf(EXTRA)
+      : [full.length ? full[full.length - 1].time : '', priceDays[priceDays.length - 1] || '', today].sort().pop();
     const d = new Date(end + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() - 364);
     const yearAgo = d.toISOString().slice(0, 10);
